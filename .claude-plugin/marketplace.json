@@ -1,0 +1,55 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "groundwork",
+  "description": "A safe-by-default, batteries-included Claude Code harness starter pack — guardrails + a wiki-grounded quality loop.",
+  "owner": {
+    "name": "choiyounggi",
+    "url": "https://github.com/choiyounggi"
+  },
+  "plugins": [
+    {
+      "name": "guardrails",
+      "description": "Safe-by-default guardrails for Claude Code — blocks supply-chain / disk-destroying / fork-bomb commands and asks before rm -rf, force-push, DROP/TRUNCATE, kubectl delete, secret/credential access, and cloud-resource deletion. Every rule configurable. Plus a redacted audit log.",
+      "category": "development",
+      "author": {
+        "name": "choiyounggi",
+        "url": "https://github.com/choiyounggi"
+      },
+      "source": "./plugins/guardrails",
+      "homepage": "https://github.com/choiyounggi/groundwork",
+      "version": "0.1.0",
+      "tags": [
+        "security",
+        "guardrails",
+        "hooks",
+        "safety",
+        "agent-safety",
+        "claude-code"
+      ]
+    },
+    {
+      "name": "dev-loop",
+      "description": "A wiki-grounded implementation loop — planning fixed to a semantic-layer best-practices wiki, a TDD / PDCA / Reflexion verification loop, and a knowledge-capture loop that harvests verified insights into reviewed wiki PRs.",
+      "category": "development",
+      "author": {
+        "name": "choiyounggi",
+        "url": "https://github.com/choiyounggi"
+      },
+      "source": {
+        "source": "url",
+        "url": "https://github.com/choiyounggi/dev-loop.git"
+      },
+      "homepage": "https://github.com/choiyounggi/dev-loop",
+      "version": "0.8.0",
+      "tags": [
+        "orchestrator",
+        "verification-loop",
+        "tdd",
+        "wiki",
+        "planning",
+        "knowledge-base",
+        "claude-code"
+      ]
+    }
+  ]
+}

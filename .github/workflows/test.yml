@@ -1,0 +1,29 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  bats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install bats + jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq
+
+      - name: Run guardrails tests
+        run: bats plugins/guardrails/tests
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Lint hooks
+        run: shellcheck -s bash plugins/guardrails/hooks/*.sh

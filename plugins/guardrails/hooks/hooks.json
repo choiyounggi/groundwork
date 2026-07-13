@@ -1,0 +1,27 @@
+{
+  "description": "guardrails hooks — a safe-by-default Bash guard (PreToolUse) and a redacted audit log (PostToolUse, Bash + MCP tool calls).",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/bash-guard.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/audit-log.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

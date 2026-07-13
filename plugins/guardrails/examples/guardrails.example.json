@@ -1,0 +1,14 @@
+{
+  "_comment": "Copy to .groundwork/guardrails.json (repo, team-shared) or ~/.claude/groundwork/guardrails.json (global). Repo overrides global overrides built-in defaults. Every field is optional.",
+  "rules": {
+    "rm_rf": { "mode": "ask" },
+    "kubectl_delete": { "mode": "block" },
+    "system_tmp_write": { "mode": "off" }
+  },
+  "extraAsk": [
+    "terraform[[:space:]]+(destroy|apply)"
+  ],
+  "extraBlock": [
+    "(^|[[:space:];&|])shutdown[[:space:]]"
+  ]
+}
