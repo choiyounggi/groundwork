@@ -18,6 +18,9 @@ jobs:
       - name: Run guardrails tests
         run: bats plugins/guardrails/tests
 
+      - name: Run memory-loop tests
+        run: bats plugins/memory-loop/tests
+
   shellcheck:
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -26,4 +29,4 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Lint hooks
-        run: shellcheck -s bash plugins/guardrails/hooks/*.sh
+        run: shellcheck -s bash plugins/*/hooks/*.sh

@@ -8,12 +8,14 @@ pipe a script from the internet straight into `sh`, force-push over history, or
 in one install — so the agent stays fast, and stays safe. It even holds in
 `--dangerously-skip-permissions` (yolo) mode: a `deny` still stops the command.
 
-This marketplace bundles two plugins you can install together or à la carte:
+This marketplace bundles three plugins — safety, quality, continuity — you can
+install together or à la carte:
 
 | Plugin | What it gives you |
 |--------|-------------------|
 | **guardrails** | A safe-by-default Bash guard — **blocks** supply-chain (`curl \| sh`), disk-destroying (`dd`/`mkfs`), and fork-bomb commands; **asks** before `rm -rf`, force-push, `DROP`/`TRUNCATE`, `kubectl delete`, credential/`.env` access, cloud-resource deletion, and secret exports. Plus a **redacted** audit log. Every rule is configurable. |
 | **[dev-loop](https://github.com/choiyounggi/dev-loop)** | A wiki-grounded implementation loop — plan against a semantic-layer best-practices wiki, verify every task (TDD / PDCA / Reflexion), and grow the wiki from what you actually learn. |
+| **memory-loop** | A memory lifecycle for your agent — a save gate against hallucinated memories, tiered expiry with archive-not-delete, a periodic learning-review nudge, a habit-distillation frame (HABITS.md), and an optional one-time identity setup (the assistant can even pick its own name). |
 
 ## Install
 
@@ -21,9 +23,10 @@ This marketplace bundles two plugins you can install together or à la carte:
 /plugin marketplace add choiyounggi/groundwork
 /plugin install guardrails@groundwork
 /plugin install dev-loop@groundwork
+/plugin install memory-loop@groundwork
 ```
 
-Install just the guard, just the loop, or both.
+Install just the guard, just the loop, just the memory — or all three.
 
 ## Why not just a starter template?
 
@@ -63,6 +66,9 @@ groundwork is a small, honest core you extend — not a walled garden:
   point `verify` at your test/build command, `knowledge` at your own wiki or knowledge
   MCP, `explore` at your code search, `design` at Figma. The bundled best-practices wiki
   then **grows from what you learn** via `knowledge-flush` → reviewed PRs.
+- **memory-loop** — your agent's memory and habits stay plain local files you can
+  read and edit; tune the nudge cadence and swept directories in
+  `.groundwork/memory-loop.json`, and grow HABITS.md from your own corrections.
 
 Bring your own wiki, your own tests, your own patterns — the harness adapts.
 
@@ -86,8 +92,8 @@ prompts are skipped. That is exactly when a power user needs a net. See
 
 ## Roadmap
 
-v0.1 ships `guardrails` + `dev-loop`. Team governance — a managed-settings
-hierarchy, policy-as-code, and audit aggregation — is next.
+groundwork ships `guardrails` + `dev-loop` + `memory-loop`. Team governance — a
+managed-settings hierarchy, policy-as-code, and audit aggregation — is next.
 
 ## License
 

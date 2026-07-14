@@ -1,0 +1,29 @@
+{
+  "description": "memory-loop hooks — identity context injection + memory expiry sweep (SessionStart) and a periodic learning-review nudge (Stop).",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/identity-context.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/memory-expiry-sweep.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/learning-nudge.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
