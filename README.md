@@ -1,5 +1,7 @@
 # groundwork
 
+**English** | [한국어](README.ko.md)
+
 **A safe-by-default, batteries-included Claude Code harness — starter pack.**
 
 Give an AI coding agent a shell and it *will*, eventually, try to run `rm -rf`,
