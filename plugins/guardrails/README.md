@@ -1,5 +1,7 @@
 # guardrails
 
+**English** | [한국어](README.ko.md)
+
 **Safe-by-default guardrails for Claude Code.** A `PreToolUse` Bash guard that
 stops the dangerous things an AI agent can do with a shell, and a `PostToolUse`
 audit log that records what ran — with secrets redacted. No org-specific rules;

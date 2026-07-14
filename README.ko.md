@@ -57,7 +57,7 @@ AI 코딩 에이전트에게 셸을 쥐여주면 *언젠가는* 반드시 `rm -r
 설치 직후 바로 확인해보세요 — `/guardrails:self-test`가 실제 위험 명령들을
 가드에 통과시켜 각각의 block/ask 판정을 보여줍니다. **아무것도 실행하지 않고요.**
 
-전체 규칙 목록과 설정은 [`plugins/guardrails/README.md`](plugins/guardrails/README.md)를 보세요.
+전체 규칙 목록과 설정은 [`plugins/guardrails/README.ko.md`](plugins/guardrails/README.ko.md)를 보세요.
 
 ## 당신의 것으로 만들기
 

@@ -1,5 +1,7 @@
 # memory-loop
 
+**English** | [한국어](README.ko.md)
+
 **A memory lifecycle for Claude Code's native file-based memory.**
 
 Claude Code can already *store* memories. What it lacks is a lifecycle: facts
