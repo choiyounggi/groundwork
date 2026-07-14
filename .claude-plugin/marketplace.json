@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "groundwork",
-  "description": "A safe-by-default, batteries-included Claude Code harness starter pack — guardrails + a wiki-grounded quality loop.",
+  "description": "A safe-by-default, batteries-included Claude Code harness starter pack — guardrails, a wiki-grounded quality loop, and a memory lifecycle.",
   "owner": {
     "name": "choiyounggi",
     "url": "https://github.com/choiyounggi"
