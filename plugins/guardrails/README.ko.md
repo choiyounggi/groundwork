@@ -102,9 +102,12 @@ bash "$(dirname "$(command -v claude)")"/../plugins/guardrails/scripts/self-test
 ```
 
 흔한 시크릿 형태(GitHub / AWS / Slack / OpenAI 토큰, `Bearer …`,
-`password=`/`token=`/`secret=`/`api_key=`)는 기록 전에 마스킹됩니다. 파일은
-`chmod 600`이며 10 MB에서 로테이션됩니다. 이 훅은 절대 실패하지 않습니다 —
-감사 로그가 깨져도 당신의 작업을 막아서는 안 되니까요.
+`password=`/`token=`/`secret=`/`credential=`/`api_key=`/`access_key=`,
+`AWS_SECRET_ACCESS_KEY=…` 같은 대문자 환경변수, 공백으로 구분된 `configure set …`
+시크릿 인자)는 기록 전에 마스킹됩니다. 마스킹은 정밀도를 우선합니다 — 키 이름
+바로 뒤에 `=`/`:`가 와야 하므로, `token_type`·`secret_level` 같은 컬럼명은 로그에서
+그대로 읽힙니다. 파일은 `chmod 600`이며 10 MB에서 로테이션됩니다. 이 훅은 절대
+실패하지 않습니다 — 감사 로그가 깨져도 당신의 작업을 막아서는 안 되니까요.
 
 ## 요구사항
 

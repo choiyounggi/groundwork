@@ -102,9 +102,12 @@ Every Bash and MCP tool call is appended (one JSON line) to
 ```
 
 Common secret shapes (GitHub / AWS / Slack / OpenAI tokens, `Bearer …`,
-`password=`/`token=`/`secret=`/`api_key=`) are redacted before writing. The file
-is `chmod 600` and rotates at 10 MB. The hook never fails — a broken audit must
-never block your work.
+`password=`/`token=`/`secret=`/`credential=`/`api_key=`/`access_key=`, upper-case
+env vars like `AWS_SECRET_ACCESS_KEY=…`, and space-separated `configure set …`
+secret args) are redacted before writing. Redaction favors precision: a `=`/`:`
+must follow the key name, so column names such as `token_type` or `secret_level`
+stay readable in the log. The file is `chmod 600` and rotates at 10 MB. The hook
+never fails — a broken audit must never block your work.
 
 ## Requirements
 

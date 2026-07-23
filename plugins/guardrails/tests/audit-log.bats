@@ -22,6 +22,33 @@ setup() {
   [[ "$output" == *"REDACTED"* ]]
 }
 
+@test "redacts an upper-case env-var secret" {
+  sec="wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLE"
+  jq -cn --arg c "export AWS_SECRET_ACCESS_KEY=$sec && aws s3 ls" \
+    '{tool_name:"Bash",tool_input:{command:$c}}' | bash "$AUDIT"
+  run cat "$GROUNDWORK_AUDIT_LOG"
+  [[ "$output" != *"$sec"* ]]
+  [[ "$output" == *"REDACTED"* ]]
+}
+
+@test "redacts a space-separated 'configure set' secret" {
+  sec="spaceSeparatedSecret42"
+  jq -cn --arg c "aws configure set aws_secret_access_key $sec" \
+    '{tool_name:"Bash",tool_input:{command:$c}}' | bash "$AUDIT"
+  run cat "$GROUNDWORK_AUDIT_LOG"
+  [[ "$output" != *"$sec"* ]]
+  [[ "$output" == *"REDACTED"* ]]
+}
+
+@test "keeps column names that only resemble secret keywords" {
+  jq -cn --arg c "psql -c \"SELECT token_type FROM t WHERE secret_level = 3\"" \
+    '{tool_name:"Bash",tool_input:{command:$c}}' | bash "$AUDIT"
+  run cat "$GROUNDWORK_AUDIT_LOG"
+  [[ "$output" == *"token_type"* ]]
+  [[ "$output" == *"secret_level = 3"* ]]
+  [[ "$output" != *"REDACTED"* ]]
+}
+
 @test "never fails on malformed input" {
   run bash -c "printf 'not json' | bash '$AUDIT'"
   [ "$status" -eq 0 ]
