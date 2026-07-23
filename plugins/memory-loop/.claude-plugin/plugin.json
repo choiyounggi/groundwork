@@ -1,6 +1,6 @@
 {
   "name": "memory-loop",
-  "description": "A memory lifecycle for Claude Code's native file-based memory: a save gate against hallucinated memories, tiered expiry (short-tier memories archived — never deleted — when they lapse), a periodic learning-review nudge, a habit-distillation frame, and an optional identity setup (names for the user and the assistant). Local-only, English, no org-specific content.",
+  "description": "A memory lifecycle for Claude Code's native file-based memory: a save gate against hallucinated memories, tiered expiry (short-tier memories archived — never deleted — when they lapse), a propose-then-confirm consolidation pass (merge/dedupe long-tier memory), a periodic learning-review nudge, a habit-distillation frame, and an optional identity setup (names for the user and the assistant). Local-only, English, no org-specific content.",
   "version": "0.1.0",
   "author": {
     "name": "choiyounggi",

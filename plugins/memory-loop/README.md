@@ -12,7 +12,8 @@ plugin adds the loop around the storage:
 ```
 capture ──────────► operate ─────────────► retire
 learning nudge      save gate +            expiry sweep →
-(every N replies)   tier/expires           archived/ (never deleted)
+(every N replies)   tier/expires,          archived/ (never deleted)
+                    consolidate
 ```
 
 Plus two things a lifecycle makes possible:
@@ -66,6 +67,7 @@ the other grows a continuous, self-correcting agent.
 | `setup` | First-time walkthrough: identity → HABITS.md → config → verify |
 | `identity` | Set, change, or decline the user/assistant names |
 | `remember` | The save gate: evidence check → tier confirm → expiry confirm → write |
+| `consolidate` | Periodically merge long-tier memory — dedupe, resolve contradictions to the current truth, absolutize dates — proposed for your confirmation before any write; discards to `archived/`, never deletes |
 | `habit` | Distill a lesson into HABITS.md (🟢 practice / 🛑 hard line), merge over multiply, escalate to hooks/skills when warranted |
 
 ## Configure
