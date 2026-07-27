@@ -1,0 +1,11 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="112" fill="#0f172a"/>
+  <!-- shield: safe-by-default -->
+  <path d="M256 92 L396 146 V270 C396 360 330 406 256 430 C182 406 116 360 116 270 V146 Z"
+        fill="#111c34" stroke="#22c55e" stroke-width="18" stroke-linejoin="round"/>
+  <!-- terminal prompt >_ : it's a CLI guard -->
+  <path d="M198 232 L240 266 L198 300" fill="none" stroke="#22c55e"
+        stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="268" y1="300" x2="318" y2="300" stroke="#e2e8f0"
+        stroke-width="24" stroke-linecap="round"/>
+</svg>

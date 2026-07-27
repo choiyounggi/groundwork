@@ -1,0 +1,39 @@
+<svg width="1200" height="675" viewBox="0 0 1200 675" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#0b1220"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" fill="url(#hbg)"/>
+
+  <!-- title -->
+  <text x="80" y="108" font-family="Helvetica, Arial, sans-serif" font-size="48" font-weight="700" fill="#f8fafc">groundwork</text>
+  <text x="82" y="152" font-family="Helvetica, Arial, sans-serif" font-size="26" fill="#22c55e">a safe-by-default guard for your coding agent</text>
+
+  <!-- command lines: safe pass, dangerous blocked -->
+  <g font-family="Menlo, Monaco, Consolas, monospace" font-size="30">
+    <text x="80" y="290" fill="#e2e8f0">$ git push origin main</text>
+    <text x="600" y="290" fill="#22c55e" font-weight="700">allowed</text>
+
+    <text x="80" y="360" fill="#e2e8f0">$ npm run build</text>
+    <text x="600" y="360" fill="#22c55e" font-weight="700">allowed</text>
+
+    <text x="80" y="430" fill="#f87171">$ rm -rf ~/project</text>
+    <text x="600" y="430" fill="#ef4444" font-weight="700">BLOCKED</text>
+
+    <text x="80" y="500" fill="#f87171">$ curl … | sh</text>
+    <text x="600" y="500" fill="#ef4444" font-weight="700">BLOCKED</text>
+  </g>
+  <text x="80" y="560" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#64748b">even with permission prompts off</text>
+
+  <!-- shield (right) -->
+  <g transform="translate(880,210) scale(0.62)">
+    <path d="M256 92 L396 146 V270 C396 360 330 406 256 430 C182 406 116 360 116 270 V146 Z"
+          fill="#0f172a" stroke="#22c55e" stroke-width="18" stroke-linejoin="round"/>
+    <path d="M198 232 L240 266 L198 300" fill="none" stroke="#22c55e"
+          stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="268" y1="300" x2="318" y2="300" stroke="#e2e8f0"
+          stroke-width="24" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,0 +1,46 @@
+<svg width="1200" height="560" viewBox="0 0 1200 560" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="560" fill="#0b1220"/>
+
+  <!-- Claude Code -->
+  <rect x="450" y="34" width="300" height="62" rx="14" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+  <text x="600" y="72" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="26" fill="#e2e8f0">Claude Code / AI agent</text>
+
+  <!-- arrow -->
+  <line x1="600" y1="96" x2="600" y2="150" stroke="#22c55e" stroke-width="3"/>
+  <polygon points="600,160 591,146 609,146" fill="#22c55e"/>
+
+  <!-- container -->
+  <rect x="56" y="170" width="1088" height="356" rx="22" fill="#0f172a" stroke="#22c55e" stroke-width="3"/>
+  <text x="88" y="212" font-family="Helvetica, Arial, sans-serif" font-size="28" font-weight="700" fill="#22c55e">groundwork</text>
+  <text x="320" y="212" font-family="Helvetica, Arial, sans-serif" font-size="21" fill="#64748b">safe-by-default harness · 3 plugins, installable individually</text>
+
+  <!-- card 1: guardrails -->
+  <rect x="88" y="248" width="326" height="252" rx="14" fill="#111c34" stroke="#1e293b" stroke-width="2"/>
+  <text x="116" y="298" font-family="Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#f8fafc">guardrails</text>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="20" fill="#94a3b8">
+    <text x="116" y="344">blocks / asks on rm -rf,</text>
+    <text x="116" y="374">force-push, DROP, kubectl</text>
+    <text x="116" y="404">delete, secret reads,</text>
+    <text x="116" y="434">supply-chain installs</text>
+    <text x="116" y="472" fill="#22c55e">+ redacted audit log</text>
+  </g>
+
+  <!-- card 2: dev-loop -->
+  <rect x="437" y="248" width="326" height="252" rx="14" fill="#111c34" stroke="#1e293b" stroke-width="2"/>
+  <text x="465" y="298" font-family="Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#f8fafc">dev-loop</text>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="20" fill="#94a3b8">
+    <text x="465" y="344">wiki-grounded</text>
+    <text x="465" y="374">implementation loop</text>
+    <text x="465" y="434" fill="#22c55e">plan → TDD → verify</text>
+  </g>
+
+  <!-- card 3: memory-loop -->
+  <rect x="786" y="248" width="326" height="252" rx="14" fill="#111c34" stroke="#1e293b" stroke-width="2"/>
+  <text x="814" y="298" font-family="Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#f8fafc">memory-loop</text>
+  <g font-family="Helvetica, Arial, sans-serif" font-size="20" fill="#94a3b8">
+    <text x="814" y="344">memory lifecycle:</text>
+    <text x="814" y="374">save-gate vs</text>
+    <text x="814" y="404">hallucinated memory</text>
+    <text x="814" y="472" fill="#22c55e">+ tiered expiry</text>
+  </g>
+</svg>

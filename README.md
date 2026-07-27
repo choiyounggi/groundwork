@@ -2,6 +2,10 @@
 
 **English** | [한국어](README.ko.md)
 
+<p align="center">
+  <img src="docs/assets/hero.png" alt="groundwork — a safe-by-default guard for your coding agent: git push and npm build are allowed, rm -rf and curl | sh are blocked, even with permission prompts off" width="820">
+</p>
+
 **A safe-by-default, batteries-included Claude Code harness — starter pack.**
 
 Give an AI coding agent a shell and it *will*, eventually, try to run `rm -rf`,
@@ -12,6 +16,10 @@ in one install — so the agent stays fast, and stays safe. It even holds in
 
 This marketplace bundles three plugins — safety, quality, continuity — you can
 install together or à la carte:
+
+<p align="center">
+  <img src="docs/assets/diagram.png" alt="groundwork architecture: Claude Code / AI agent runs through groundwork's three plugins — guardrails, dev-loop, memory-loop" width="860">
+</p>
 
 | Plugin | What it gives you |
 |--------|-------------------|
