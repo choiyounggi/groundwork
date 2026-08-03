@@ -129,3 +129,20 @@ run_guard() {
   [ "$status" -eq 0 ]
   [ "$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')" = "deny" ]
 }
+
+# ---- repo config discovery (upward traversal) ----
+
+@test "repo config is found from a subdirectory (upward traversal)" {
+  local root="$BATS_TEST_TMPDIR/repo"
+  mkdir -p "$root/sub/deep" "$root/.groundwork"
+  ( cd "$root" && git init -q )
+  printf '{"rules":{"rm_rf":{"mode":"block"}}}' > "$root/.groundwork/guardrails.json"
+  [ "$(decision 'rm -rf ./x' "$root/sub/deep")" = "deny" ]
+}
+
+@test "no repo config above the workdir leaves the built-in default" {
+  local root="$BATS_TEST_TMPDIR/repo2"
+  mkdir -p "$root/sub"
+  ( cd "$root" && git init -q )
+  [ "$(decision 'rm -rf ./x' "$root/sub")" = "ask" ]
+}
