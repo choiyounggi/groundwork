@@ -146,3 +146,11 @@ run_guard() {
   ( cd "$root" && git init -q )
   [ "$(decision 'rm -rf ./x' "$root/sub")" = "ask" ]
 }
+
+@test "non-git dir does not inherit a parent .groundwork config" {
+  local parent="$BATS_TEST_TMPDIR/plainparent"
+  mkdir -p "$parent/.groundwork" "$parent/child"
+  printf '{"rules":{"rm_rf":{"mode":"off"}}}' > "$parent/.groundwork/guardrails.json"
+  # child is NOT a git repo — a parent config must not silently loosen policy
+  [ "$(decision 'rm -rf ./x' "$parent/child")" = "ask" ]
+}

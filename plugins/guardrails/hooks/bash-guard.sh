@@ -23,8 +23,11 @@
 set -uo pipefail
 
 # Shared secret redaction — used when recording an escalation (see escalate()).
+# Resolve the script dir absolutely so sourcing works regardless of how the hook
+# is invoked (relative $0, different $PWD); fall back to a bare dirname.
+GUARD_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)" || GUARD_DIR="$(dirname "$0")"
 # shellcheck source=/dev/null
-. "$(dirname "$0")/redact.sh"
+. "$GUARD_DIR/redact.sh"
 
 GLOBAL_CFG="${HOME}/.claude/groundwork/guardrails.json"
 
@@ -33,16 +36,24 @@ GLOBAL_CFG="${HOME}/.claude/groundwork/guardrails.json"
 # worktree config (discovery is not limited to the literal $PWD).
 find_repo_cfg() {
   local d="$PWD" top
-  top=$(git rev-parse --show-toplevel 2>/dev/null)
+  top=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+  # Not in a git repo: only the literal $PWD (original behavior). Do NOT walk up
+  # into unrelated parent directories, or an ancestor's config could silently
+  # loosen policy for a plain directory.
+  if [ -z "$top" ]; then
+    [ -f "$PWD/.groundwork/guardrails.json" ] && printf '%s' "$PWD/.groundwork/guardrails.json"
+    return 0
+  fi
+  # In a git repo: nearest config from $PWD up to (and including) the toplevel.
   while :; do
     if [ -f "$d/.groundwork/guardrails.json" ]; then
       printf '%s' "$d/.groundwork/guardrails.json"; return 0
     fi
-    [ -n "$top" ] && [ "$d" = "$top" ] && break
+    [ "$d" = "$top" ] && break
     [ "$d" = "/" ] && break
     d=$(dirname "$d")
   done
-  return 1
+  return 0
 }
 REPO_CFG=$(find_repo_cfg)
 

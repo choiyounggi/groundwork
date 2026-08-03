@@ -43,9 +43,11 @@ SUMMARY=$(printf '%s' "$INPUT" \
   | head -c 300 | tr '\n' ' ')
 
 # Redact secrets before persisting — shared logic in redact.sh (single source,
-# also used by the escalation path in bash-guard.sh).
+# also used by the escalation path in bash-guard.sh). Resolve the dir absolutely
+# so sourcing works regardless of how the hook is invoked; fall back to dirname.
+AUDIT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)" || AUDIT_DIR="$(dirname "$0")"
 # shellcheck source=/dev/null
-. "$(dirname "$0")/redact.sh"
+. "$AUDIT_DIR/redact.sh"
 SUMMARY=$(redact "$SUMMARY")
 
 # jq builds valid JSON (handles escaping); append one line.
