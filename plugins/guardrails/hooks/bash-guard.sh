@@ -27,7 +27,24 @@ set -uo pipefail
 . "$(dirname "$0")/redact.sh"
 
 GLOBAL_CFG="${HOME}/.claude/groundwork/guardrails.json"
-REPO_CFG="${PWD}/.groundwork/guardrails.json"
+
+# Repo config: the nearest .groundwork/guardrails.json at or above $PWD, not past
+# the git toplevel. A worker that cd'd into a subdirectory still finds its
+# worktree config (discovery is not limited to the literal $PWD).
+find_repo_cfg() {
+  local d="$PWD" top
+  top=$(git rev-parse --show-toplevel 2>/dev/null)
+  while :; do
+    if [ -f "$d/.groundwork/guardrails.json" ]; then
+      printf '%s' "$d/.groundwork/guardrails.json"; return 0
+    fi
+    [ -n "$top" ] && [ "$d" = "$top" ] && break
+    [ "$d" = "/" ] && break
+    d=$(dirname "$d")
+  done
+  return 1
+}
+REPO_CFG=$(find_repo_cfg)
 
 INPUT=$(cat)
 CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
