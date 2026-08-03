@@ -73,6 +73,10 @@ Drop a `guardrails.json` at either level (repo overrides global overrides defaul
 - `<repo>/.groundwork/guardrails.json` — team-shared, committed with the repo
 - `~/.claude/groundwork/guardrails.json` — your global default
 
+The repo config is discovered by walking up from the current directory to the git
+toplevel, so it applies from any subdirectory of the repo. Outside a git repo,
+only the current directory is checked.
+
 ```jsonc
 {
   "rules": {
@@ -90,7 +94,23 @@ See [`examples/guardrails.example.json`](examples/guardrails.example.json).
 ### Non-interactive / CI
 
 Set `GROUNDWORK_NONINTERACTIVE=1` to turn every `ask` into a hard `deny` — useful
-for headless or CI agents where no human is there to confirm.
+for headless or CI agents where no human is there to confirm. Caution: this denies
+*every* `ask`, so it silently fails legitimate work if set on an orchestration
+worker that still needs to act — use `GROUNDWORK_ESCALATION_DIR` (below) there.
+
+### Orchestration / worker sessions
+
+Inside a headless orchestration worker (e.g. a tmux session an orchestrator
+spawns), a blocking `ask` has no human to answer it. Set
+`GROUNDWORK_ESCALATION_DIR` (and optionally `GROUNDWORK_TASK_ID`): any rule that
+would `ask` instead writes a **redacted** escalation record to that directory and
+returns `deny`, so the coordinator can see it and re-issue the step with approval
+rather than the worker hanging. This takes precedence over
+`GROUNDWORK_NONINTERACTIVE` — both deny, but an escalation is visible, not silent.
+
+Scope which rules matter per worktree by dropping a `.groundwork/guardrails.json`
+at the worktree root: loosen sandbox-harmless rules and keep the dangerous ones as
+`ask` (which then escalate).
 
 ## Audit log
 

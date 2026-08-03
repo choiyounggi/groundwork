@@ -73,6 +73,9 @@ bash "$(dirname "$(command -v claude)")"/../plugins/guardrails/scripts/self-test
 - `<repo>/.groundwork/guardrails.json` — 팀 공유, 레포에 커밋
 - `~/.claude/groundwork/guardrails.json` — 내 글로벌 기본값
 
+레포 설정은 현재 디렉토리에서 git 최상위까지 거슬러 올라가며 탐색되므로, 레포의
+어느 하위 디렉토리에서도 적용됩니다. git 레포 밖에서는 현재 디렉토리만 확인합니다.
+
 ```jsonc
 {
   "rules": {
@@ -90,7 +93,21 @@ bash "$(dirname "$(command -v claude)")"/../plugins/guardrails/scripts/self-test
 ### 비대화 / CI
 
 `GROUNDWORK_NONINTERACTIVE=1`을 설정하면 모든 `ask`가 강한 `deny`로 바뀝니다 —
-확인해줄 사람이 없는 headless/CI 에이전트에 유용합니다.
+확인해줄 사람이 없는 headless/CI 에이전트에 유용합니다. 주의: *모든* `ask`를
+거부하므로, 실제 작업을 해야 하는 오케스트레이션 워커에 걸면 정상 작업까지 조용히
+실패합니다 — 그런 경우엔 아래 `GROUNDWORK_ESCALATION_DIR`를 쓰세요.
+
+### 오케스트레이션 / 워커 세션
+
+오케스트레이터가 띄운 headless 워커(예: tmux 세션) 안에서는 `ask` 프롬프트에
+답할 사람이 없습니다. `GROUNDWORK_ESCALATION_DIR`(선택적으로
+`GROUNDWORK_TASK_ID`)를 설정하면, `ask`가 될 규칙이 대신 해당 디렉토리에 **마스킹된**
+에스컬레이션 레코드를 쓰고 `deny`를 반환합니다. 그러면 워커가 멈추는 대신 코디네이터가
+그걸 보고 승인 후 단계를 재실행할 수 있습니다. 이는 `GROUNDWORK_NONINTERACTIVE`보다
+우선합니다 — 둘 다 deny지만 에스컬레이션은 조용하지 않고 관측 가능합니다.
+
+워크트리 루트에 `.groundwork/guardrails.json`을 두어 규칙 범위를 좁히세요:
+샌드박스에서 무해한 규칙은 완화하고, 위험한 규칙은 `ask`로 유지(→ 에스컬레이션)합니다.
 
 ## 감사 로그
 
