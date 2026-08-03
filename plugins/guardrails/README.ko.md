@@ -48,7 +48,8 @@ bash "$(dirname "$(command -v claude)")"/../plugins/guardrails/scripts/self-test
 
 | 규칙 id | 기본값 | 트리거 |
 |---------|---------|-------------|
-| `curl_pipe_shell` | **block** | `curl`/`wget`/`fetch`를 `sh`/`bash`/`python`/`node`/… 로 파이프 (공급망 공격) |
+| `curl_pipe_shell` | **block** | `curl`/`wget`/`fetch`를 셸(`sh`/`bash`/…)로, 또는 stdin을 프로그램으로 읽는 `python`/`node`/`ruby`/`perl`로 파이프 (공급망 공격) |
+| `curl_pipe_interp` | ask | `curl … \| python -c` / `node -e` / … — 파이프는 *데이터*이고 코드는 로컬에 보이지만 eval 가능성이 남음 |
 | `disk_destroy` | **block** | `dd of=/dev/sd…`, `mkfs.… /dev/…`, `> /dev/sda` |
 | `fork_bomb` | **block** | 고전적인 `:(){ :\|:& };:` |
 | `rm_rf` | ask | recursive **와** force가 함께 붙은 `rm` (`-rf`, `-fr`, `--recursive --force`, …) |
@@ -60,6 +61,7 @@ bash "$(dirname "$(command -v claude)")"/../plugins/guardrails/scripts/self-test
 | `sensitive_file` | ask | `~/.ssh/id_*`, `~/.aws/credentials`, `.netrc`, `.npmrc`, `.pgpass`, `.env` 읽기/이동 |
 | `cloud_delete` | ask | `aws … delete/terminate/rb`, `gcloud … delete`, `az … delete` |
 | `secret_export` | ask | `export SOMETHING_TOKEN/SECRET/API_KEY/PASSWORD=…` |
+| `worktree_escape` | ask | 링크된 워크트리에서 **메인** 워크트리로 쓰기(`rm`/`mv`/`cp`/`>`/…) — 워커가 공유 체크아웃을 오염 (best-effort) |
 | `system_tmp_write` | **off** | `/tmp`, `$TMPDIR`, `/private/var/folders` 밑 쓰기 (EDR 제한 환경에서 옵트인) |
 
 `block` → 명령이 거부됩니다. `ask` → 확인 프롬프트가 뜹니다. 패턴은 명령어를

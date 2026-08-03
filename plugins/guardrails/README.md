@@ -48,7 +48,8 @@ still stops the command. ([finding](../../docs/launch/yolo-finding.md))
 
 | Rule id | Default | Triggers on |
 |---------|---------|-------------|
-| `curl_pipe_shell` | **block** | `curl`/`wget`/`fetch` piped into `sh`/`bash`/`python`/`node`/… (supply-chain) |
+| `curl_pipe_shell` | **block** | `curl`/`wget`/`fetch` piped into a shell (`sh`/`bash`/…), or into `python`/`node`/`ruby`/`perl` reading stdin as the program (supply-chain) |
+| `curl_pipe_interp` | ask | `curl … \| python -c` / `node -e` / … — the pipe is *data* and the code is local & visible, but still eval-capable |
 | `disk_destroy` | **block** | `dd of=/dev/sd…`, `mkfs.… /dev/…`, `> /dev/sda` |
 | `fork_bomb` | **block** | the classic `:(){ :\|:& };:` |
 | `rm_rf` | ask | `rm` with recursive **and** force (`-rf`, `-fr`, `--recursive --force`, …) |
@@ -60,6 +61,7 @@ still stops the command. ([finding](../../docs/launch/yolo-finding.md))
 | `sensitive_file` | ask | reads/moves of `~/.ssh/id_*`, `~/.aws/credentials`, `.netrc`, `.npmrc`, `.pgpass`, `.env` |
 | `cloud_delete` | ask | `aws … delete/terminate/rb`, `gcloud … delete`, `az … delete` |
 | `secret_export` | ask | `export SOMETHING_TOKEN/SECRET/API_KEY/PASSWORD=…` |
+| `worktree_escape` | ask | a write (`rm`/`mv`/`cp`/`>`/…) into the **main** worktree from a linked worktree — a worker corrupting the shared checkout (best-effort) |
 | `system_tmp_write` | **off** | writes under `/tmp`, `$TMPDIR`, `/private/var/folders` (opt in for EDR-restricted environments) |
 
 `block` → the command is denied. `ask` → you get a confirmation prompt. Patterns
