@@ -49,9 +49,14 @@ remask_file() {  # $1 = path to a JSONL audit file
   done < "$f"
   echo "$f: $changed/$total line(s) would be re-masked"
   if [ "$apply" -eq 1 ] && [ "$changed" -gt 0 ]; then
-    cp "$f" "$f.premask.bak" 2>/dev/null && chmod 600 "$f.premask.bak" 2>/dev/null || true
+    # Never overwrite the log without a confirmed backup: if the backup cannot be
+    # written, abort this file and leave the original untouched.
+    if ! cp "$f" "$f.premask.bak" 2>/dev/null; then
+      echo "  ERROR: could not back up $f — left unchanged" >&2; rm -f "$tmp"; return 0
+    fi
+    chmod 600 "$f.premask.bak" 2>/dev/null || true
     mv "$tmp" "$f" 2>/dev/null && chmod 600 "$f" 2>/dev/null \
-      || { echo "  ERROR: could not rewrite $f (left unchanged)" >&2; rm -f "$tmp"; return 0; }
+      || { echo "  ERROR: could not rewrite $f (left unchanged; backup at $f.premask.bak)" >&2; rm -f "$tmp"; return 0; }
     echo "  applied (backup: $f.premask.bak)"
   else
     rm -f "$tmp" 2>/dev/null
