@@ -44,6 +44,7 @@ SUMMARY=$(printf '%s' "$INPUT" \
 
 # Redact secrets before persisting — shared logic in redact.sh (single source,
 # also used by the escalation path in bash-guard.sh).
+# shellcheck source=/dev/null
 . "$(dirname "$0")/redact.sh"
 SUMMARY=$(redact "$SUMMARY")
 

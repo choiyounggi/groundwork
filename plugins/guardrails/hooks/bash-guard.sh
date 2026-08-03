@@ -22,6 +22,10 @@
 #   - bash 3.2 compatible: no associative arrays, no ${var,,}.
 set -uo pipefail
 
+# Shared secret redaction — used when recording an escalation (see escalate()).
+# shellcheck source=/dev/null
+. "$(dirname "$0")/redact.sh"
+
 GLOBAL_CFG="${HOME}/.claude/groundwork/guardrails.json"
 REPO_CFG="${PWD}/.groundwork/guardrails.json"
 
@@ -41,15 +45,42 @@ effective_mode() {
   printf '%s' "$def"
 }
 
+escalate() {
+  # $1 = rule id, $2 = original reason. Record a pending decision for the
+  # coordinator (dev-loop watch reads this dir). Best-effort — any failure still
+  # results in a deny, so a worker never proceeds on an unrecorded escalation.
+  local id="$1" reason="$2" dir="${GROUNDWORK_ESCALATION_DIR:-}" ts tmp
+  [ -n "$dir" ] || return 0
+  mkdir -p "$dir" 2>/dev/null || return 0
+  ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
+  tmp="$dir/.tmp.$$-$RANDOM"
+  jq -cn --arg ts "$ts" --arg task "${GROUNDWORK_TASK_ID:-}" \
+    --arg rule "$id" --arg reason "$reason" \
+    --arg cmd "$(redact "$CMD")" --arg cwd "$PWD" \
+    '{ts:$ts, taskId:$task, rule:$rule, reason:$reason, cmd:$cmd, cwd:$cwd}' \
+    > "$tmp" 2>/dev/null || { rm -f "$tmp" 2>/dev/null; return 0; }
+  mv "$tmp" "$dir/$(date +%s 2>/dev/null || echo 0)-$RANDOM.json" 2>/dev/null \
+    || rm -f "$tmp" 2>/dev/null
+}
+
 emit() {
-  # $1 = mode (block|ask), $2 = reason. Exits on a real decision.
-  local mode="$1" reason="$2" pd
+  # $1 = mode (block|ask), $2 = reason, $3 = rule id (for escalation records).
+  # Exits on a real decision.
+  local mode="$1" reason="$2" id="${3:-custom}" pd
   case "$mode" in
     block) pd="deny" ;;
     ask)   pd="ask" ;;
     *)     return 0 ;;
   esac
-  if [ "$pd" = "ask" ] && [ "${GROUNDWORK_NONINTERACTIVE:-0}" = "1" ]; then
+  # In an orchestration worker (dev-loop exports GROUNDWORK_ESCALATION_DIR), turn
+  # a blocking `ask` into an observable event: record it and deny, so the
+  # coordinator sees it and can re-issue with approval. Takes precedence over
+  # NONINTERACTIVE — both deny, but escalation is visible rather than silent.
+  if [ "$pd" = "ask" ] && [ -n "${GROUNDWORK_ESCALATION_DIR:-}" ]; then
+    escalate "$id" "$reason"
+    pd="deny"
+    reason="코디네이터에 에스컬레이션됨 (규칙: ${id}). 승인이 필요하면 오케스트레이터가 재실행합니다."
+  elif [ "$pd" = "ask" ] && [ "${GROUNDWORK_NONINTERACTIVE:-0}" = "1" ]; then
     pd="deny"
   fi
   jq -cn --arg pd "$pd" --arg r "$reason" \
@@ -62,7 +93,7 @@ fire() {
   local mode
   mode=$(effective_mode "$1" "$2")
   [ "$mode" = "off" ] && return 0
-  emit "$mode" "$3"
+  emit "$mode" "$3" "$1"
 }
 
 match() { printf '%s' "$CMD" | grep -qE "$1"; }
