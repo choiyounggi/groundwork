@@ -9,9 +9,10 @@
 #     < <cwd>/.groundwork/guardrails.json             (repo, team-shared)
 # Shape: {"rules": {"<id>": {"mode": "off|ask|block"}},
 #         "extraAsk": ["regex", ...], "extraBlock": ["regex", ...]}
-# Rule ids: curl_pipe_shell disk_destroy fork_bomb rm_rf git_force_push
-#   git_reset_hard git_discard sql_drop kubectl_delete sensitive_file
-#   cloud_delete secret_export system_tmp_write(off by default)
+# Rule ids: curl_pipe_shell curl_pipe_interp disk_destroy fork_bomb rm_rf
+#   git_force_push git_reset_hard git_discard sql_drop kubectl_delete
+#   sensitive_file cloud_delete secret_export worktree_escape
+#   system_tmp_write(off by default)
 #
 # Non-interactive/CI: set GROUNDWORK_NONINTERACTIVE=1 to turn every `ask` into `deny`.
 #
@@ -132,9 +133,20 @@ PRE='(^|[[:space:];&|(])'
 
 # ===================== block tier (specific, low false-positive) =====================
 
-# curl|sh — remote script piped straight into an interpreter (supply chain).
-if match "${PRE}(curl|wget|fetch)[[:space:]].*\|[[:space:]]*(sudo[[:space:]]+)?(sh|bash|zsh|ksh|dash|python[0-9.]*|node|ruby|perl)([[:space:]]|-|<|\$)"; then
-  fire curl_pipe_shell block "원격 스크립트를 인터프리터로 바로 실행(curl|sh)하는 패턴 — 공급망 공격 위험. 파일로 받아 내용을 확인한 뒤 실행하세요."
+# curl|shell — remote content piped into a shell: stdin is always code → block.
+if match "${PRE}(curl|wget|fetch)[[:space:]].*\|[[:space:]]*(sudo[[:space:]]+)?(sh|bash|zsh|ksh|dash)([[:space:]]|-|<|\$)"; then
+  fire curl_pipe_shell block "원격 스크립트를 셸로 바로 실행(curl|sh)하는 패턴 — 공급망 공격 위험. 파일로 받아 내용을 확인한 뒤 실행하세요."
+fi
+
+# curl|interpreter — python/node/ruby/perl reading the pipe. With -c/-e the pipe
+# is DATA and the code is local & visible → ask (still eval-capable, not a free
+# pass). Without, stdin is the program itself → block (same risk as curl|sh).
+if match "${PRE}(curl|wget|fetch)[[:space:]].*\|[[:space:]]*(sudo[[:space:]]+)?(python[0-9.]*|node|ruby|perl)([[:space:]]|-|<|\$)"; then
+  if match "\|[[:space:]]*(sudo[[:space:]]+)?(python[0-9.]*|node|ruby|perl)[[:space:]]+([^|]*[[:space:]])?-(c|e)([[:space:]]|=|'|\"|\$)"; then
+    fire curl_pipe_interp ask "curl 데이터를 인터프리터의 -c/-e 스크립트로 처리 — 로컬 코드는 보이지만 eval 가능성이 남습니다. 스크립트 내용을 확인하세요."
+  else
+    fire curl_pipe_shell block "원격 콘텐츠를 인터프리터에 stdin 프로그램으로 실행 — 공급망 공격 위험. 파일로 받아 확인 후 실행하세요."
+  fi
 fi
 
 # Disk-destroying writes.
@@ -198,6 +210,39 @@ fi
 if match "${PRE}[<>]?[[:space:]]*(/tmp/|/private/tmp/|/private/var/folders/|\\\$TMPDIR)"; then
   fire system_tmp_write off "시스템 임시 디렉토리(/tmp 등)에 씁니다. 일부 EDR 정책에서 차단 대상입니다."
 fi
+
+# worktree_escape — a write into the MAIN worktree from a LINKED worktree. An
+# orchestration worker should stay in its own worktree; writing into the shared
+# main checkout corrupts it. Best-effort and default `ask`: git is consulted only
+# when the command contains an absolute path, and the match is heuristic (an
+# absolute mention of the main root together with a write verb / redirect).
+case "$CMD" in
+  */*)
+    wt_top=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+    if [ -n "$wt_top" ]; then
+      common=$(git rev-parse --git-common-dir 2>/dev/null || echo "")
+      case "$common" in
+        */.git) main_root=$(cd "$(dirname "$common")" 2>/dev/null && pwd -P || echo "") ;;
+        *)      main_root="" ;;
+      esac
+      wt_top_p=$(cd "$wt_top" 2>/dev/null && pwd -P || printf '%s' "$wt_top")
+      # A linked worktree usually lives UNDER the main root (…/.worktrees/x), so
+      # its own paths also contain main_root. Strip references to this worktree
+      # first, then a remaining main_root mention is a write OUTSIDE the worktree.
+      if [ -n "$main_root" ] && [ "$main_root" != "$wt_top_p" ]; then
+        rest=${CMD//"$wt_top_p"/}
+        case "$rest" in
+          *"$main_root"*)
+            if match "(^|[[:space:];&|(])(rm|mv|cp|tee|mkdir|touch|install|dd)[[:space:]]" \
+               || match "(>|>>)[[:space:]]*[\"']?/"; then
+              fire worktree_escape ask "링크된 워크트리에서 메인 워크트리(${main_root})에 쓰기를 시도합니다 — 워커가 공유 메인 체크아웃을 오염시킬 수 있습니다."
+            fi
+            ;;
+        esac
+      fi
+    fi
+    ;;
+esac
 
 # ===================== user-defined extra patterns =====================
 apply_extra() {
