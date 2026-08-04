@@ -131,6 +131,23 @@ must follow the key name, so column names such as `token_type` or `secret_level`
 stay readable in the log. The file is `chmod 600` and rotates at 10 MB. The hook
 never fails — a broken audit must never block your work.
 
+### Re-masking an older log
+
+Redaction runs at write time, so lines written by an *earlier* version of the
+guard keep whatever it masked back then (a stale plugin cache is the usual
+cause). `remask-audit.sh` re-applies the current rules to a log that already
+exists:
+
+```bash
+bash plugins/guardrails/scripts/remask-audit.sh            # dry run — counts changed lines, prints no secrets
+bash plugins/guardrails/scripts/remask-audit.sh --apply    # rewrite in place
+```
+
+It defaults to `$GROUNDWORK_AUDIT_LOG` (else `~/.claude/groundwork/audit.jsonl`),
+also processes rotated `*.old` files, and is idempotent — an already-redacted
+line is left untouched. `--apply` backs up to `<log>.premask.bak` first and
+**aborts if that backup fails**, so the original is never overwritten unbacked.
+
 ## Requirements
 
 - `bash` (3.2+, macOS/Linux) and `jq` on `PATH`.
