@@ -134,15 +134,18 @@ PRE='(^|[[:space:];&|(])'
 # ===================== block tier (specific, low false-positive) =====================
 
 # curl|shell — remote content piped into a shell: stdin is always code → block.
-if match "${PRE}(curl|wget|fetch)[[:space:]].*\|[[:space:]]*(sudo[[:space:]]+)?(sh|bash|zsh|ksh|dash)([[:space:]]|-|<|\$)"; then
+# Case-insensitive (macOS FS resolves BASH→bash) and tolerant of a path prefix
+# (/bin/bash). Wrapper bypasses (env/xargs/…) are out of scope — this is a
+# tripwire, not a sandbox.
+if imatch "${PRE}(curl|wget|fetch)[[:space:]].*\|[[:space:]]*(sudo[[:space:]]+)?([^[:space:];&|]*/)?(sh|bash|zsh|ksh|dash)([[:space:]]|-|<|\$)"; then
   fire curl_pipe_shell block "원격 스크립트를 셸로 바로 실행(curl|sh)하는 패턴 — 공급망 공격 위험. 파일로 받아 내용을 확인한 뒤 실행하세요."
 fi
 
 # curl|interpreter — python/node/ruby/perl reading the pipe. With -c/-e the pipe
 # is DATA and the code is local & visible → ask (still eval-capable, not a free
 # pass). Without, stdin is the program itself → block (same risk as curl|sh).
-if match "${PRE}(curl|wget|fetch)[[:space:]].*\|[[:space:]]*(sudo[[:space:]]+)?(python[0-9.]*|node|ruby|perl)([[:space:]]|-|<|\$)"; then
-  if match "\|[[:space:]]*(sudo[[:space:]]+)?(python[0-9.]*|node|ruby|perl)[[:space:]]+([^|]*[[:space:]])?-(c|e)([[:space:]]|=|'|\"|\$)"; then
+if imatch "${PRE}(curl|wget|fetch)[[:space:]].*\|[[:space:]]*(sudo[[:space:]]+)?([^[:space:];&|]*/)?(python[0-9.]*|node|ruby|perl)([[:space:]]|-|<|\$)"; then
+  if imatch "\|[[:space:]]*(sudo[[:space:]]+)?([^[:space:];&|]*/)?(python[0-9.]*|node|ruby|perl)[[:space:]]+([^|]*[[:space:]])?-(c|e)([[:space:]]|=|'|\"|\$)"; then
     fire curl_pipe_interp ask "curl 데이터를 인터프리터의 -c/-e 스크립트로 처리 — 로컬 코드는 보이지만 eval 가능성이 남습니다. 스크립트 내용을 확인하세요."
   else
     fire curl_pipe_shell block "원격 콘텐츠를 인터프리터에 stdin 프로그램으로 실행 — 공급망 공격 위험. 파일로 받아 확인 후 실행하세요."
@@ -231,8 +234,10 @@ case "$CMD" in
       # first, then a remaining main_root mention is a write OUTSIDE the worktree.
       if [ -n "$main_root" ] && [ "$main_root" != "$wt_top_p" ]; then
         rest=${CMD//"$wt_top_p"/}
+        # require a path separator after main_root so a sibling like
+        # "<main_root>-backup/…" is not a false positive
         case "$rest" in
-          *"$main_root"*)
+          *"$main_root"/*)
             if match "(^|[[:space:];&|(])(rm|mv|cp|tee|mkdir|touch|install|dd)[[:space:]]" \
                || match "(>|>>)[[:space:]]*[\"']?/"; then
               fire worktree_escape ask "링크된 워크트리에서 메인 워크트리(${main_root})에 쓰기를 시도합니다 — 워커가 공유 메인 체크아웃을 오염시킬 수 있습니다."

@@ -72,6 +72,20 @@ learns nothing about orchestration — it only reacts to the env var.
 - `.orchestration/journal.jsonl` (axis 3 P2).
 - broad_autofix, secret_grep rules (P2).
 
+## Known limitations (accepted, from review)
+
+These rules are best-effort tripwires, not sandboxes. Accepted, not fixed:
+
+- `curl_pipe_shell` / `curl_pipe_interp`: wrapper bypasses (`curl x | env bash`,
+  `| xargs bash`, `| timeout bash`) are not caught. Uppercase (`BASH`) and an
+  absolute path (`/bin/bash`) ARE caught (case-insensitive + path-prefix).
+- `worktree_escape`: only sees the literal command text — a write via an
+  unexpanded shell variable (`cd $MAIN && rm -rf .`) is invisible to static
+  analysis; a literal path (`cd /abs/main && …`) is caught. Git state mutations
+  (`git -C /main …`) are out of scope (this rule is about filesystem writes).
+  On macOS the /var↔/private/var symlink can cause a false negative if the
+  command and the resolved worktree use different forms.
+
 ## Files touched
 
 groundwork:
