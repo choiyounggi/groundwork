@@ -128,6 +128,22 @@ bash "$(dirname "$(command -v claude)")"/../plugins/guardrails/scripts/self-test
 그대로 읽힙니다. 파일은 `chmod 600`이며 10 MB에서 로테이션됩니다. 이 훅은 절대
 실패하지 않습니다 — 감사 로그가 깨져도 당신의 작업을 막아서는 안 되니까요.
 
+### 기존 로그 재마스킹
+
+마스킹은 기록 시점에 적용되므로, *이전* 버전의 가드가 쓴 줄에는 그때의 마스킹만
+남아 있습니다 (보통 플러그인 캐시가 오래된 경우). `remask-audit.sh`는 이미 존재하는
+로그에 현재 규칙을 다시 적용합니다:
+
+```bash
+bash plugins/guardrails/scripts/remask-audit.sh            # 드라이런 — 바뀔 줄 수만 세고, 시크릿은 출력하지 않음
+bash plugins/guardrails/scripts/remask-audit.sh --apply    # 실제로 덮어쓰기
+```
+
+기본 대상은 `$GROUNDWORK_AUDIT_LOG` (없으면 `~/.claude/groundwork/audit.jsonl`)이며,
+로테이션된 `*.old` 파일도 함께 처리합니다. 멱등적이라 이미 마스킹된 줄은 그대로
+둡니다. `--apply`는 먼저 `<log>.premask.bak`으로 백업하고, **백업에 실패하면
+중단**하므로 원본이 백업 없이 덮어써지는 일은 없습니다.
+
 ## 요구사항
 
 - `PATH`에 `bash`(3.2+, macOS/Linux)와 `jq`.
