@@ -24,7 +24,7 @@ install together or à la carte:
 | Plugin | What it gives you |
 |--------|-------------------|
 | **guardrails** | A safe-by-default Bash guard — **blocks** supply-chain (`curl \| sh`), disk-destroying (`dd`/`mkfs`), and fork-bomb commands; **asks** before `rm -rf`, force-push, `DROP`/`TRUNCATE`, `kubectl delete`, credential/`.env` access, cloud-resource deletion, and secret exports. Plus a **redacted** audit log. Every rule is configurable. |
-| **[dev-loop](https://github.com/choiyounggi/dev-loop)** | A wiki-grounded implementation loop — plan against a semantic-layer best-practices wiki, verify every task (TDD / PDCA / Reflexion), and grow the wiki from what you actually learn. |
+| **[dev-loop](https://github.com/choiyounggi/dev-loop)** | A wiki-grounded implementation loop — plan against a semantic-layer best-practices wiki, verify every task (TDD / PDCA / Reflexion), and grow the wiki from what you actually learn. Bigger than one task? `orchestrate` splits a goal across **parallel worker sessions** — on Orca when it is installed (tracked tasks, event-driven completion), on plain tmux when it is not — with two human gates around it. |
 | **memory-loop** | A memory lifecycle for your agent — a save gate against hallucinated memories, tiered expiry with archive-not-delete, a periodic learning-review nudge, a habit-distillation frame (HABITS.md), and an optional one-time identity setup (the assistant can even pick its own name). |
 
 ## Install
