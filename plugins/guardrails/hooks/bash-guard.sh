@@ -74,6 +74,20 @@ effective_mode() {
   printf '%s' "$def"
 }
 
+# Per-rule path allowlist: repo config > global config, first non-empty wins
+# (same precedence as effective_mode). Currently honoured by worktree_escape.
+# Generic on purpose — the guard ships no knowledge of any tool's directory
+# layout; a caller that has a sanctioned write path declares it in its config.
+rule_allow_paths() {
+  # $1 = rule id -> prints one relative path per line (may be empty)
+  local id="$1" v cfg
+  for cfg in "$REPO_CFG" "$GLOBAL_CFG"; do
+    [ -f "$cfg" ] || continue
+    v=$(jq -r --arg r "$id" '(.rules[$r].allowPaths // []) | .[]' "$cfg" 2>/dev/null)
+    if [ -n "$v" ]; then printf '%s\n' "$v"; return 0; fi
+  done
+}
+
 escalate() {
   # $1 = rule id, $2 = original reason. Record a pending decision for the
   # coordinator (dev-loop watch reads this dir). Best-effort — any failure still
@@ -234,6 +248,24 @@ case "$CMD" in
       # first, then a remaining main_root mention is a write OUTSIDE the worktree.
       if [ -n "$main_root" ] && [ "$main_root" != "$wt_top_p" ]; then
         rest=${CMD//"$wt_top_p"/}
+        # Sanctioned write paths inside the main root (rules.worktree_escape
+        # .allowPaths). Strip those references too, so a command whose ONLY
+        # main-root mention is a declared channel does not fire — while one that
+        # also touches the checkout still does. An orchestrator's shared state
+        # (status/escalation files) lives in the main worktree by design; without
+        # this, every coordination write reads as checkout corruption.
+        while IFS= read -r ap; do
+          [ -n "$ap" ] || continue
+          case "$ap" in /*|*..*) continue ;; esac   # relative, no traversal
+          ap=${ap%/}
+          # Build the pattern in its own variable first. In `${v//"a/b"/}` bash
+          # 3.2 takes the quoted `/` as the pattern/replacement delimiter, so the
+          # inline form silently becomes "replace $main_root with $ap/".
+          ap_pat="$main_root/$ap"
+          rest=${rest//"$ap_pat"/}
+        done <<EOF
+$(rule_allow_paths worktree_escape)
+EOF
         # require a path separator after main_root so a sibling like
         # "<main_root>-backup/…" is not a false positive
         case "$rest" in

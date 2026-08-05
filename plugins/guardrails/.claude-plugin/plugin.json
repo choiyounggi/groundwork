@@ -1,7 +1,7 @@
 {
   "name": "guardrails",
   "description": "Safe-by-default guardrails for Claude Code: a PreToolUse Bash guard that blocks supply-chain / disk-destroying / fork-bomb commands and asks before rm -rf, force-push, DROP/TRUNCATE, kubectl delete, secret/credential access, and cloud-resource deletion — every rule configurable (off / ask / block) — plus a redacted PostToolUse audit log. No org-specific rules; generic across any project.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "choiyounggi",
     "url": "https://github.com/choiyounggi"
