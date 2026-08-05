@@ -61,7 +61,7 @@ bash "$(dirname "$(command -v claude)")"/../plugins/guardrails/scripts/self-test
 | `sensitive_file` | ask | `~/.ssh/id_*`, `~/.aws/credentials`, `.netrc`, `.npmrc`, `.pgpass`, `.env` 읽기/이동 |
 | `cloud_delete` | ask | `aws … delete/terminate/rb`, `gcloud … delete`, `az … delete` |
 | `secret_export` | ask | `export SOMETHING_TOKEN/SECRET/API_KEY/PASSWORD=…` |
-| `worktree_escape` | ask | 링크된 워크트리에서 **메인** 워크트리로 쓰기(`rm`/`mv`/`cp`/`>`/…) — 워커가 공유 체크아웃을 오염 (best-effort) |
+| `worktree_escape` | ask | 링크된 워크트리에서 **메인** 워크트리로 쓰기(`rm`/`mv`/`cp`/`>`/…) — 워커가 공유 체크아웃을 오염 (best-effort). 정당한 채널은 아래 `allowPaths`로 선언합니다. |
 | `system_tmp_write` | **off** | `/tmp`, `$TMPDIR`, `/private/var/folders` 밑 쓰기 (EDR 제한 환경에서 옵트인) |
 
 `block` → 명령이 거부됩니다. `ask` → 확인 프롬프트가 뜹니다. 패턴은 명령어를
@@ -90,7 +90,22 @@ bash "$(dirname "$(command -v claude)")"/../plugins/guardrails/scripts/self-test
 }
 ```
 
-[`examples/guardrails.example.json`](examples/guardrails.example.json)을 참고하세요.
+[`examples/guardrails.example.json`](examples/guardrails.example.json) 참고.
+
+### 허용된 쓰기 경로 (`worktree_escape`)
+
+여러 워크트리를 조율하는 도구는 공유 상태를 메인 체크아웃 안에 두는 경우가 많아,
+워커의 정당한 쓰기가 전부 `worktree_escape`가 막으려는 오염처럼 보입니다. 규칙을
+끄는 대신 그 경로를 선언하세요:
+
+```jsonc
+{ "rules": { "worktree_escape": { "mode": "ask", "allowPaths": [".orchestration"] } } }
+```
+
+경로는 메인 워크트리 루트 기준 상대경로입니다. 메인 루트 참조가 **오직** 허용
+경로뿐인 명령은 발동하지 않고, 체크아웃까지 건드리는 명령은 그대로 발동합니다.
+절대경로와 `..`이 포함된 항목은 무시되므로, 이 목록으로 규칙을 메인 루트 밖까지
+넓힐 수는 없습니다.을 참고하세요.
 
 ### 비대화 / CI
 
