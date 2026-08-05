@@ -232,3 +232,46 @@ _wt_repo() {   # create a repo + one linked worktree under it
   # "<main_root>-sib/…" starts with the main root string but is a different dir
   [ "$(decision "cp ./a ${rootp}-sib/f" "$wt")" = "" ]
 }
+
+# allowPaths — a sanctioned write channel inside the main root. An orchestrator
+# keeps its shared state (status/escalation files) in the main worktree by
+# design, so without this every coordination write from a worker reads as
+# checkout corruption. Observed live: two `worktree_escape` escalations in one
+# orchestration run, both for writes into <main>/.orchestration/.
+_wt_allow() { # $1 = JSON array body for rules.worktree_escape.allowPaths
+  mkdir -p "$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1/.groundwork"
+  printf '{"rules":{"worktree_escape":{"mode":"ask","allowPaths":[%s]}}}' "$1" \
+    > "$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1/.groundwork/guardrails.json"
+}
+
+@test "worktree_escape: an allowPaths write into the main root does not fire" {
+  _wt_repo; _wt_allow '".orchestration"'
+  local rootp; rootp=$(cd "$BATS_TEST_TMPDIR/wtrepo" && pwd -P)
+  local wt="$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1"
+  [ "$(decision "echo x > $rootp/.orchestration/status/t1.json" "$wt")" = "" ]
+  [ "$(decision "mkdir -p $rootp/.orchestration/plans" "$wt")" = "" ]
+}
+
+@test "worktree_escape: allowPaths does not license the rest of the checkout" {
+  _wt_repo; _wt_allow '".orchestration"'
+  local rootp; rootp=$(cd "$BATS_TEST_TMPDIR/wtrepo" && pwd -P)
+  local wt="$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1"
+  [ "$(decision "echo pwned > $rootp/f" "$wt")" = "ask" ]
+  # one command touching both: the checkout write still fires
+  [ "$(decision "cp $rootp/.orchestration/x $rootp/src/y" "$wt")" = "ask" ]
+}
+
+@test "worktree_escape: a traversing or absolute allowPath is ignored (boundary)" {
+  _wt_repo; _wt_allow '"../..","/etc",".orchestration"'
+  local rootp; rootp=$(cd "$BATS_TEST_TMPDIR/wtrepo" && pwd -P)
+  local wt="$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1"
+  [ "$(decision "echo pwned > $rootp/f" "$wt")" = "ask" ]   # not widened
+  [ "$(decision "echo x > $rootp/.orchestration/s" "$wt")" = "" ]  # valid one still works
+}
+
+@test "worktree_escape: no allowPaths configured keeps the original behavior" {
+  _wt_repo
+  local rootp; rootp=$(cd "$BATS_TEST_TMPDIR/wtrepo" && pwd -P)
+  local wt="$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1"
+  [ "$(decision "echo x > $rootp/.orchestration/status/t1.json" "$wt")" = "ask" ]
+}

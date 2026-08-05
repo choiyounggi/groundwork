@@ -61,7 +61,7 @@ still stops the command. ([finding](../../docs/launch/yolo-finding.md))
 | `sensitive_file` | ask | reads/moves of `~/.ssh/id_*`, `~/.aws/credentials`, `.netrc`, `.npmrc`, `.pgpass`, `.env` |
 | `cloud_delete` | ask | `aws … delete/terminate/rb`, `gcloud … delete`, `az … delete` |
 | `secret_export` | ask | `export SOMETHING_TOKEN/SECRET/API_KEY/PASSWORD=…` |
-| `worktree_escape` | ask | a write (`rm`/`mv`/`cp`/`>`/…) into the **main** worktree from a linked worktree — a worker corrupting the shared checkout (best-effort) |
+| `worktree_escape` | ask | a write (`rm`/`mv`/`cp`/`>`/…) into the **main** worktree from a linked worktree — a worker corrupting the shared checkout (best-effort). Declare sanctioned channels with `allowPaths` (below) |
 | `system_tmp_write` | **off** | writes under `/tmp`, `$TMPDIR`, `/private/var/folders` (opt in for EDR-restricted environments) |
 
 `block` → the command is denied. `ask` → you get a confirmation prompt. Patterns
@@ -92,6 +92,23 @@ only the current directory is checked.
 ```
 
 See [`examples/guardrails.example.json`](examples/guardrails.example.json).
+
+### Sanctioned write paths (`worktree_escape`)
+
+A tool that coordinates several worktrees usually keeps shared state inside the
+main checkout, so every legitimate write from a worker looks like the corruption
+`worktree_escape` exists to stop. Declare those paths instead of turning the rule
+off:
+
+```jsonc
+{ "rules": { "worktree_escape": { "mode": "ask", "allowPaths": [".orchestration"] } } }
+```
+
+Paths are relative to the main worktree root. A command whose *only* main-root
+reference is an allowed path does not fire; one that also touches the checkout
+still does. Absolute paths and any entry containing `..` are ignored, so the list
+cannot be used to widen the rule beyond the main root.
+
 
 ### Non-interactive / CI
 
