@@ -122,7 +122,7 @@ emit() {
   if [ "$pd" = "ask" ] && [ -n "${GROUNDWORK_ESCALATION_DIR:-}" ]; then
     escalate "$id" "$reason"
     pd="deny"
-    reason="코디네이터에 에스컬레이션됨 (규칙: ${id}). 승인이 필요하면 오케스트레이터가 재실행합니다."
+    reason="Escalated to the coordinator (rule: ${id}). The orchestrator will re-issue this step if it is approved."
   elif [ "$pd" = "ask" ] && [ "${GROUNDWORK_NONINTERACTIVE:-0}" = "1" ]; then
     pd="deny"
   fi
@@ -152,7 +152,7 @@ PRE='(^|[[:space:];&|(])'
 # (/bin/bash). Wrapper bypasses (env/xargs/…) are out of scope — this is a
 # tripwire, not a sandbox.
 if imatch "${PRE}(curl|wget|fetch)[[:space:]].*\|[[:space:]]*(sudo[[:space:]]+)?([^[:space:];&|]*/)?(sh|bash|zsh|ksh|dash)([[:space:]]|-|<|\$)"; then
-  fire curl_pipe_shell block "원격 스크립트를 셸로 바로 실행(curl|sh)하는 패턴 — 공급망 공격 위험. 파일로 받아 내용을 확인한 뒤 실행하세요."
+  fire curl_pipe_shell block "Piping a remote script straight into a shell (curl|sh) — supply-chain risk. Download it to a file, read it, then run it."
 fi
 
 # curl|interpreter — python/node/ruby/perl reading the pipe. With -c/-e the pipe
@@ -160,72 +160,72 @@ fi
 # pass). Without, stdin is the program itself → block (same risk as curl|sh).
 if imatch "${PRE}(curl|wget|fetch)[[:space:]].*\|[[:space:]]*(sudo[[:space:]]+)?([^[:space:];&|]*/)?(python[0-9.]*|node|ruby|perl)([[:space:]]|-|<|\$)"; then
   if imatch "\|[[:space:]]*(sudo[[:space:]]+)?([^[:space:];&|]*/)?(python[0-9.]*|node|ruby|perl)[[:space:]]+([^|]*[[:space:]])?-(c|e)([[:space:]]|=|'|\"|\$)"; then
-    fire curl_pipe_interp ask "curl 데이터를 인터프리터의 -c/-e 스크립트로 처리 — 로컬 코드는 보이지만 eval 가능성이 남습니다. 스크립트 내용을 확인하세요."
+    fire curl_pipe_interp ask "Remote data piped into an interpreter's -c/-e script — the code is local and visible, but still eval-capable. Check what the script does with it."
   else
-    fire curl_pipe_shell block "원격 콘텐츠를 인터프리터에 stdin 프로그램으로 실행 — 공급망 공격 위험. 파일로 받아 확인 후 실행하세요."
+    fire curl_pipe_shell block "Remote content executed as an interpreter's program on stdin — supply-chain risk. Download it to a file, read it, then run it."
   fi
 fi
 
 # Disk-destroying writes.
 if match "(dd[[:space:]]+.*[[:space:]]of=/dev/(sd|nvme|disk|hd)|mkfs\.[a-z0-9]+[[:space:]]+/dev/|${PRE}>[[:space:]]*/dev/(sd|nvme|disk|hd))"; then
-  fire disk_destroy block "디스크 장치에 직접 쓰는 명령(dd / mkfs / >/dev/…) — 복구 불가능한 데이터 손실."
+  fire disk_destroy block "Writing directly to a disk device (dd / mkfs / >/dev/...) — unrecoverable data loss."
 fi
 
 # Fork bomb.
 if match ':[[:space:]]*\(\)[[:space:]]*\{[[:space:]]*:[[:space:]]*\|[[:space:]]*:[[:space:]]*&[[:space:]]*\}[[:space:]]*;[[:space:]]*:'; then
-  fire fork_bomb block "fork bomb 패턴이 감지되었습니다."
+  fire fork_bomb block "Fork bomb pattern detected."
 fi
 
 # ===================== ask tier =====================
 
 # rm -rf — recursive AND force (either order, clustered or split, long or short).
 if imatch "${PRE}rm[[:space:]]+([^|;&]*[[:space:]])?(-[[:alnum:]]*r[[:alnum:]]*f|-[[:alnum:]]*f[[:alnum:]]*r|-[rR][[:space:]]+-[[:alnum:]]*f|-f[[:space:]]+-[[:alnum:]]*[rR]|--recursive[[:space:]].*--force|--force[[:space:]].*--recursive)"; then
-  fire rm_rf ask "rm -rf (재귀 + 강제 삭제) — 되돌릴 수 없습니다. 대상 경로를 확인하세요."
+  fire rm_rf ask "rm -rf (recursive + force) cannot be undone. Check the target path."
 fi
 
 # git force push.
 if match "git[[:space:]]+push[[:space:]].*(-f($|[[:space:]])|--force([[:space:]]|=|$))"; then
-  fire git_force_push ask "force push는 원격 히스토리를 덮어씁니다."
+  fire git_force_push ask "A force push overwrites remote history."
 fi
 
 # git reset --hard.
 if match "git[[:space:]]+reset[[:space:]]+--hard"; then
-  fire git_reset_hard ask "git reset --hard는 커밋되지 않은 모든 변경을 삭제합니다."
+  fire git_reset_hard ask "git reset --hard discards every uncommitted change."
 fi
 
 # git checkout/restore .  (discard working tree).
 if match "git[[:space:]]+(checkout|restore)[[:space:]]+(--[[:space:]]+)?\.([[:space:]]|$)"; then
-  fire git_discard ask "작업 트리의 변경을 되돌립니다 — 커밋되지 않은 작업이 유실될 수 있습니다."
+  fire git_discard ask "This reverts the working tree — uncommitted work may be lost."
 fi
 
 # SQL DROP / TRUNCATE.
 if imatch "drop[[:space:]]+(table|database|schema)\b|(^|[[:space:];&|(\"'\`])truncate[[:space:]]+(table[[:space:]]+)?[a-z_\"\`]"; then
-  fire sql_drop ask "DROP / TRUNCATE 는 데이터를 영구 삭제합니다."
+  fire sql_drop ask "DROP / TRUNCATE deletes data permanently."
 fi
 
 # kubectl delete.
 if match "kubectl[[:space:]]+.*\bdelete\b"; then
-  fire kubectl_delete ask "kubectl delete는 클러스터 리소스를 제거합니다 — 프로덕션에 영향을 줄 수 있습니다."
+  fire kubectl_delete ask "kubectl delete removes cluster resources — this may affect production."
 fi
 
 # Sensitive file access (keys / credentials / .env).
 if match "(rm|mv|cp|cat|less|more|scp|tee|curl|wget)[[:space:]].*(\.ssh/(id_|authorized_keys|known_hosts)|\.aws/credentials|\.netrc|\.npmrc|\.pgpass|(^|/)\.env($|[[:space:].]))"; then
-  fire sensitive_file ask "SSH 키·클라우드 크레덴셜·.env 등 민감 파일에 접근/수정하려 합니다."
+  fire sensitive_file ask "This touches a sensitive file — an SSH key, cloud credentials, or a .env."
 fi
 
 # Cloud resource deletion.
 if match "(aws[[:space:]]+[a-z0-9-]+[[:space:]]+(delete|terminate|rb|remove)[a-z-]*|gcloud[[:space:]]+.*[[:space:]]delete([[:space:]]|$)|(^|[[:space:]])az[[:space:]]+.*[[:space:]]delete([[:space:]]|$))"; then
-  fire cloud_delete ask "클라우드 자원 삭제 명령입니다. 대상 환경(프로덕션?)과 의존성을 확인하세요."
+  fire cloud_delete ask "This deletes a cloud resource. Confirm the target environment (production?) and what depends on it."
 fi
 
 # Secret export to env (leaks into shell history).
 if match "export[[:space:]]+[A-Za-z_]*(TOKEN|SECRET|API_?KEY|PASSWORD|ACCESS_KEY|PRIVATE_KEY)"; then
-  fire secret_export ask "API 키/토큰을 환경변수로 설정 — 쉘 히스토리에 남을 수 있습니다. .env 파일 사용을 권장합니다."
+  fire secret_export ask "Setting an API key or token as an environment variable — it can persist in shell history. Prefer a .env file."
 fi
 
 # System temp write — OFF by default. Opt in for EDR-restricted environments.
 if match "${PRE}[<>]?[[:space:]]*(/tmp/|/private/tmp/|/private/var/folders/|\\\$TMPDIR)"; then
-  fire system_tmp_write off "시스템 임시 디렉토리(/tmp 등)에 씁니다. 일부 EDR 정책에서 차단 대상입니다."
+  fire system_tmp_write off "This touches a system temp directory (/tmp and friends). Some EDR policies flag that."
 fi
 
 # worktree_escape — a write into the MAIN worktree from a LINKED worktree. An
@@ -272,7 +272,7 @@ EOF
           *"$main_root"/*)
             if match "(^|[[:space:];&|(])(rm|mv|cp|tee|mkdir|touch|install|dd)[[:space:]]" \
                || match "(>|>>)[[:space:]]*[\"']?/"; then
-              fire worktree_escape ask "링크된 워크트리에서 메인 워크트리(${main_root})에 쓰기를 시도합니다 — 워커가 공유 메인 체크아웃을 오염시킬 수 있습니다."
+              fire worktree_escape ask "Writing into the main worktree (${main_root}) from a linked worktree — a worker can corrupt the shared checkout."
             fi
             ;;
         esac
@@ -290,7 +290,7 @@ apply_extra() {
     while IFS= read -r pat; do
       [ -z "$pat" ] && continue
       if printf '%s' "$CMD" | grep -qE "$pat"; then
-        emit "$mode" "사용자 정의 가드 패턴에 매칭되었습니다: ${pat}"
+        emit "$mode" "Matched a user-defined guard pattern: ${pat}"
       fi
     done <<EOF
 $(jq -r --arg f "$field" '.[$f][]? // empty' "$cfg" 2>/dev/null)

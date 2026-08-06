@@ -2,6 +2,13 @@
 
 [English](README.md) | **한국어**
 
+[![test](https://github.com/choiyounggi/groundwork/actions/workflows/test.yml/badge.svg)](https://github.com/choiyounggi/groundwork/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+<p align="center">
+  <img src="docs/assets/hero.png" alt="groundwork — 코딩 에이전트를 위한 안전 기본값 가드: git push와 npm build는 통과, rm -rf와 curl | sh는 차단 — 권한 프롬프트를 꺼도" width="820">
+</p>
+
 **안전이 기본값인, 배터리 포함 Claude Code 하네스 — 스타터 팩.**
 
 AI 코딩 에이전트에게 셸을 쥐여주면 *언젠가는* 반드시 `rm -rf`를 실행하거나,
@@ -13,6 +20,10 @@ AI 코딩 에이전트에게 셸을 쥐여주면 *언젠가는* 반드시 `rm -r
 
 이 마켓플레이스는 세 개의 플러그인 — 안전, 품질, 지속성 — 을 묶어 제공하며,
 함께 설치해도 되고 골라 설치해도 됩니다:
+
+<p align="center">
+  <img src="docs/assets/diagram.png" alt="groundwork 아키텍처: Claude Code / AI 에이전트가 guardrails, dev-loop, memory-loop 세 플러그인을 거칩니다" width="860">
+</p>
 
 | 플러그인 | 제공하는 것 |
 |--------|-------------------|
@@ -58,6 +69,39 @@ AI 코딩 에이전트에게 셸을 쥐여주면 *언젠가는* 반드시 `rm -r
 가드에 통과시켜 각각의 block/ask 판정을 보여줍니다. **아무것도 실행하지 않고요.**
 
 전체 규칙 목록과 설정은 [`plugins/guardrails/README.ko.md`](plugins/guardrails/README.ko.md)를 보세요.
+
+## 오케스트레이터 안에서도 동작합니다 (Orca, tmux)
+
+사람이 보고 있을 때는 가드가 멈춰서 물어봐도 됩니다. 하지만 오케스트레이터가
+띄운 헤드리스 워커 세션에서 `ask`는 **아무도 답할 수 없는 프롬프트**입니다 —
+워커는 그냥 멈춰 버립니다.
+
+guardrails는 이걸 환경변수 두 개로 해결합니다. 오케스트레이터 SDK 같은 건
+필요 없습니다:
+
+```bash
+export GROUNDWORK_ESCALATION_DIR=/path/to/escalations
+export GROUNDWORK_TASK_ID=my-task-1
+```
+
+이제 `ask`가 될 규칙은 해당 디렉토리에 **마스킹된** 에스컬레이션 레코드를 쓰고
+`deny`를 반환합니다. 워커는 멈추는 대신 즉시 실패하고, 코디네이터는 어떤 태스크의
+어떤 명령에서 어떤 규칙이 걸렸는지 정확히 보고 승인과 함께 그 단계를 재실행할 수
+있습니다.
+
+**dev-loop의 `orchestrate`가 이 배선을 대신 해줍니다.** `orchestrate`가 띄우는
+모든 워커 세션은 — Orca가 `PATH`에서 감지되면 Orca 위에서, 아니면 순수 tmux로 —
+두 변수를 export한 채 실행되고, 각 워커 워크트리는 자기만의 git-ignore된
+`.groundwork/guardrails.json`을 받습니다: 샌드박스에서 무해한 규칙은 풀고
+(일회용 워크트리 안에서는 `rm_rf: off`), 진짜 위험한 규칙은 `ask`로 남겨 에스컬레이션되게
+하며(`curl_pipe_shell`, `worktree_escape`), `worktree_escape`에는
+`allowPaths: [".orchestration"]`을 줘서 조율용 상태 쓰기는 허용하되 공유 메인
+체크아웃을 오염시키는 쓰기는 그대로 걸리게 합니다. Orca에서는 코디네이터가 푸시된
+에스컬레이션 메일에 블로킹하므로, 워커가 막힌 명령이 다음 폴링까지 기다리지 않고
+몇 초 안에 전달됩니다.
+
+이 규약은 일부러 단순합니다 — 디렉토리 하나와 변수 두 개 — 그래서 어떤
+오케스트레이터든 채택할 수 있습니다. Orca는 이미 배선이 끝나 있는 쪽일 뿐입니다.
 
 ## 당신의 것으로 만들기
 
