@@ -2,6 +2,9 @@
 
 **English** | [한국어](README.ko.md)
 
+[![test](https://github.com/choiyounggi/groundwork/actions/workflows/test.yml/badge.svg)](https://github.com/choiyounggi/groundwork/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 <p align="center">
   <img src="docs/assets/hero.png" alt="groundwork — a safe-by-default guard for your coding agent: git push and npm build are allowed, rm -rf and curl | sh are blocked, even with permission prompts off" width="820">
 </p>
@@ -64,6 +67,38 @@ Try it right after install — `/guardrails:self-test` feeds real dangerous comm
 through the guard and shows each block/ask decision, **without executing any of them.**
 
 See [`plugins/guardrails/README.md`](plugins/guardrails/README.md) for the full rule list and configuration.
+
+## Works inside an orchestrator (Orca, tmux)
+
+A guard that stops to ask is fine when a human is watching. In a headless worker
+session spawned by an orchestrator, an `ask` is a prompt nobody can answer — the
+worker just hangs.
+
+guardrails solves that with a plain env-var contract, no orchestrator SDK:
+
+```bash
+export GROUNDWORK_ESCALATION_DIR=/path/to/escalations
+export GROUNDWORK_TASK_ID=my-task-1
+```
+
+Any rule that would `ask` then writes a **redacted** escalation record to that
+directory and returns `deny`. The worker fails fast instead of hanging, and the
+coordinator sees exactly which rule fired, on which command, in which task — and
+can re-issue the step with approval.
+
+**dev-loop's `orchestrate` wires this up for you.** Every worker session it
+spawns — on Orca when it is detected on your `PATH`, on plain tmux otherwise —
+is launched with both variables exported, and each worker
+worktree gets its own git-ignored `.groundwork/guardrails.json`: sandbox-harmless
+rules loosened (`rm_rf: off` inside a throwaway worktree), genuinely dangerous
+ones kept at `ask` so they escalate (`curl_pipe_shell`, `worktree_escape`), and
+`worktree_escape` given `allowPaths: [".orchestration"]` so coordination state
+writes are sanctioned while corrupting the shared main checkout still fires. On
+Orca the coordinator blocks on pushed escalation mail, so a worker's blocked
+command reaches you in seconds rather than at the next poll.
+
+The contract is deliberately dumb — a directory and two variables — so any
+orchestrator can adopt it. Orca is simply the one already wired up.
 
 ## Make it yours
 

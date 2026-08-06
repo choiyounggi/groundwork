@@ -18,11 +18,15 @@ Active immediately, no config required.
 
 ## Self-test (see it work in 10 seconds)
 
-Right after installing, ask Claude to run **`/guardrails:self-test`**, or run it directly:
+Right after installing, ask Claude to run **`/guardrails:self-test`**. To run it
+yourself instead:
 
 ```bash
-bash "$(dirname "$(command -v claude)")"/../plugins/guardrails/scripts/self-test.sh 2>/dev/null \
-  || bash plugins/guardrails/scripts/self-test.sh   # from a checkout
+# installed from the marketplace (newest installed version)
+bash "$(ls -d ~/.claude/plugins/cache/groundwork/guardrails/*/scripts/self-test.sh | tail -1)"
+
+# or from a checkout of this repo
+bash plugins/guardrails/scripts/self-test.sh
 ```
 
 It feeds representative dangerous commands (`curl | sh`, `rm -rf`, `DROP TABLE`,
@@ -58,11 +62,11 @@ still stops the command. ([finding](../../docs/launch/yolo-finding.md))
 | `git_discard` | ask | `git checkout .` / `git restore .` |
 | `sql_drop` | ask | `DROP TABLE/DATABASE/SCHEMA`, `TRUNCATE` |
 | `kubectl_delete` | ask | `kubectl delete …` |
-| `sensitive_file` | ask | reads/moves of `~/.ssh/id_*`, `~/.aws/credentials`, `.netrc`, `.npmrc`, `.pgpass`, `.env` |
-| `cloud_delete` | ask | `aws … delete/terminate/rb`, `gcloud … delete`, `az … delete` |
-| `secret_export` | ask | `export SOMETHING_TOKEN/SECRET/API_KEY/PASSWORD=…` |
+| `sensitive_file` | ask | reads/moves of `~/.ssh/id_*`, `~/.ssh/authorized_keys`, `~/.ssh/known_hosts`, `~/.aws/credentials`, `.netrc`, `.npmrc`, `.pgpass`, `.env` |
+| `cloud_delete` | ask | `aws … delete/terminate/rb/remove`, `gcloud … delete`, `az … delete` |
+| `secret_export` | ask | `export SOMETHING_TOKEN/SECRET/API_KEY/PASSWORD/ACCESS_KEY/PRIVATE_KEY…` |
 | `worktree_escape` | ask | a write (`rm`/`mv`/`cp`/`>`/…) into the **main** worktree from a linked worktree — a worker corrupting the shared checkout (best-effort). Declare sanctioned channels with `allowPaths` (below) |
-| `system_tmp_write` | **off** | writes under `/tmp`, `$TMPDIR`, `/private/var/folders` (opt in for EDR-restricted environments) |
+| `system_tmp_write` | **off** | any access to `/tmp`, `/private/tmp`, `$TMPDIR`, `/private/var/folders` (opt in for EDR-restricted environments) |
 
 `block` → the command is denied. `ask` → you get a confirmation prompt. Patterns
 anchor command words at an execution position, so a *mention* of a dangerous
@@ -130,6 +134,15 @@ rather than the worker hanging. This takes precedence over
 Scope which rules matter per worktree by dropping a `.groundwork/guardrails.json`
 at the worktree root: loosen sandbox-harmless rules and keep the dangerous ones as
 `ask` (which then escalate).
+
+The contract is just a directory and two variables, so any orchestrator can adopt
+it. **dev-loop's `orchestrate` already does** — on Orca when it is detected on
+your `PATH`, on plain tmux otherwise. It exports both variables into every worker
+session and writes each worker worktree a git-ignored config in exactly the shape
+above: `rm_rf: off` inside the throwaway worktree, `curl_pipe_shell` and
+`worktree_escape` held at `ask` so they escalate, and
+`worktree_escape.allowPaths: [".orchestration"]` so coordination-state writes are
+sanctioned while a write into the shared main checkout still fires.
 
 ## Audit log
 
