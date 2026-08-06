@@ -18,11 +18,14 @@
 
 ## 셀프 테스트 (10초 만에 동작 확인)
 
-설치 직후 Claude에게 **`/guardrails:self-test`** 를 요청하거나, 직접 실행하세요:
+설치 직후 Claude에게 **`/guardrails:self-test`** 를 요청하세요. 직접 실행하려면:
 
 ```bash
-bash "$(dirname "$(command -v claude)")"/../plugins/guardrails/scripts/self-test.sh 2>/dev/null \
-  || bash plugins/guardrails/scripts/self-test.sh   # 체크아웃에서 실행할 때
+# 마켓플레이스로 설치한 경우 (설치된 최신 버전)
+bash "$(ls -d ~/.claude/plugins/cache/groundwork/guardrails/*/scripts/self-test.sh | tail -1)"
+
+# 이 레포를 체크아웃한 경우
+bash plugins/guardrails/scripts/self-test.sh
 ```
 
 대표적인 위험 명령들(`curl | sh`, `rm -rf`, `DROP TABLE`, `kubectl delete`,
@@ -58,11 +61,11 @@ bash "$(dirname "$(command -v claude)")"/../plugins/guardrails/scripts/self-test
 | `git_discard` | ask | `git checkout .` / `git restore .` |
 | `sql_drop` | ask | `DROP TABLE/DATABASE/SCHEMA`, `TRUNCATE` |
 | `kubectl_delete` | ask | `kubectl delete …` |
-| `sensitive_file` | ask | `~/.ssh/id_*`, `~/.aws/credentials`, `.netrc`, `.npmrc`, `.pgpass`, `.env` 읽기/이동 |
-| `cloud_delete` | ask | `aws … delete/terminate/rb`, `gcloud … delete`, `az … delete` |
-| `secret_export` | ask | `export SOMETHING_TOKEN/SECRET/API_KEY/PASSWORD=…` |
+| `sensitive_file` | ask | `~/.ssh/id_*`, `~/.ssh/authorized_keys`, `~/.ssh/known_hosts`, `~/.aws/credentials`, `.netrc`, `.npmrc`, `.pgpass`, `.env` 읽기/이동 |
+| `cloud_delete` | ask | `aws … delete/terminate/rb/remove`, `gcloud … delete`, `az … delete` |
+| `secret_export` | ask | `export SOMETHING_TOKEN/SECRET/API_KEY/PASSWORD/ACCESS_KEY/PRIVATE_KEY…` |
 | `worktree_escape` | ask | 링크된 워크트리에서 **메인** 워크트리로 쓰기(`rm`/`mv`/`cp`/`>`/…) — 워커가 공유 체크아웃을 오염 (best-effort). 정당한 채널은 아래 `allowPaths`로 선언합니다. |
-| `system_tmp_write` | **off** | `/tmp`, `$TMPDIR`, `/private/var/folders` 밑 쓰기 (EDR 제한 환경에서 옵트인) |
+| `system_tmp_write` | **off** | `/tmp`, `/private/tmp`, `$TMPDIR`, `/private/var/folders` 접근 전반 (EDR 제한 환경에서 옵트인) |
 
 `block` → 명령이 거부됩니다. `ask` → 확인 프롬프트가 뜹니다. 패턴은 명령어를
 실행 위치에 앵커하므로, 인용된 인자 안에서 위험 명령을 *언급*하는 것만으로는
@@ -125,6 +128,15 @@ bash "$(dirname "$(command -v claude)")"/../plugins/guardrails/scripts/self-test
 
 워크트리 루트에 `.groundwork/guardrails.json`을 두어 규칙 범위를 좁히세요:
 샌드박스에서 무해한 규칙은 완화하고, 위험한 규칙은 `ask`로 유지(→ 에스컬레이션)합니다.
+
+이 규약은 디렉토리 하나와 변수 두 개뿐이라 어떤 오케스트레이터든 채택할 수
+있습니다. **dev-loop의 `orchestrate`는 이미 그렇게 하고 있습니다** — Orca가
+`PATH`에서 감지되면 Orca 위에서, 아니면 순수 tmux로. 모든 워커 세션에 두 변수를
+export하고, 각 워커 워크트리에 위와 정확히 같은 형태의 git-ignore된 설정을
+써 줍니다: 일회용 워크트리 안에서는 `rm_rf: off`, `curl_pipe_shell`과
+`worktree_escape`는 `ask`로 유지해 에스컬레이션되게 하고,
+`worktree_escape.allowPaths: [".orchestration"]`으로 조율용 상태 쓰기는 허용하되
+공유 메인 체크아웃으로의 쓰기는 그대로 걸리게 합니다.
 
 ## 감사 로그
 

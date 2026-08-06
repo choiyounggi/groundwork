@@ -93,7 +93,7 @@ run_guard() {
   export GROUNDWORK_ESCALATION_DIR="$esc" GROUNDWORK_TASK_ID="lo-2"
   run run_guard 'git push --force origin main'
   [ "$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')" = "deny" ]
-  [[ "$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')" == *"에스컬레이션"* ]]
+  [[ "$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')" == *"Escalated to the coordinator"* ]]
   run cat "$esc"/*.json
   [ "$(printf '%s' "$output" | jq -r '.rule')" = "git_force_push" ]
   [ "$(printf '%s' "$output" | jq -r '.taskId')" = "lo-2" ]
