@@ -1,0 +1,53 @@
+# Create a GitHub Release (with auto-generated notes) when a version tag is
+# pushed. These plugins are installed through the Claude Code marketplace (a git
+# repo), not npm, so there is NO publish step — the Release is the versioning
+# artifact marketplace users see.
+#
+# Without this, pushing a tag did nothing: v1.0.0, v1.1.0 and v1.2.0 all reached
+# origin while the newest published Release stayed at v0.2.0, so the project
+# looked like it was still on 0.x long after it was not.
+#
+# Usage: bump the plugin's .claude-plugin/plugin.json "version" AND its entry in
+# the root .claude-plugin/marketplace.json, commit, then:
+#   git tag vX.Y.Z && git push origin vX.Y.Z
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write   # needed to create the Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # groundwork is a marketplace bundling several independently versioned
+      # plugins, so there is no single file the tag must equal. Require instead
+      # that the tag matches SOME bundled plugin's version — enough to catch a
+      # typo'd or stale tag without inventing a canonical version this repo does
+      # not have. dev-loop is excluded on purpose: its entry carries no version
+      # because it tracks its own repo.
+      - name: Verify the tag matches a bundled plugin version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          VERSIONS=$(jq -r '.plugins[] | select(.version) | "\(.name) \(.version)"' .claude-plugin/marketplace.json)
+          echo "release tag: $TAG_VERSION"
+          echo "bundled plugin versions:"
+          echo "$VERSIONS"
+          if ! echo "$VERSIONS" | awk '{print $2}' | grep -qx "$TAG_VERSION"; then
+            echo "::error::Tag '$TAG_VERSION' matches no bundled plugin version. Bump the plugin (plugin.json AND marketplace.json) or retag."
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
