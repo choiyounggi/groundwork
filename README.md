@@ -17,8 +17,8 @@ pipe a script from the internet straight into `sh`, force-push over history, or
 in one install — so the agent stays fast, and stays safe. It even holds in
 `--dangerously-skip-permissions` (yolo) mode: a `deny` still stops the command.
 
-This marketplace bundles three plugins — safety, quality, continuity — you can
-install together or à la carte:
+This marketplace bundles three plugins — safety, quality **and orchestration**,
+continuity — you can install together or à la carte:
 
 <p align="center">
   <img src="docs/assets/diagram.png" alt="groundwork architecture: Claude Code / AI agent runs through groundwork's three plugins — guardrails, dev-loop, memory-loop" width="860">
@@ -27,7 +27,7 @@ install together or à la carte:
 | Plugin | What it gives you |
 |--------|-------------------|
 | **guardrails** | A safe-by-default Bash guard — **blocks** supply-chain (`curl \| sh`), disk-destroying (`dd`/`mkfs`), and fork-bomb commands; **asks** before `rm -rf`, force-push, `DROP`/`TRUNCATE`, `kubectl delete`, credential/`.env` access, cloud-resource deletion, and secret exports. Plus a **redacted** audit log. Every rule is configurable. |
-| **[dev-loop](https://github.com/choiyounggi/dev-loop)** | A wiki-grounded implementation loop — plan against a semantic-layer best-practices wiki, verify every task (TDD / PDCA / Reflexion), and grow the wiki from what you actually learn. Bigger than one task? `orchestrate` splits a goal across **parallel worker sessions** — on Orca when it is installed (tracked tasks, event-driven completion), on plain tmux when it is not — with two human gates around it. |
+| **[dev-loop](https://github.com/choiyounggi/dev-loop)** | A wiki-grounded implementation loop **and a multi-session orchestrator**. The loop plans against a semantic-layer best-practices wiki, verifies every task (TDD / PDCA / Reflexion), and grows the wiki from what you actually learn. Bigger than one task? `orchestrate` decomposes the goal into a **dependency graph** and schedules parallel worker sessions the moment their dependencies clear — **Orca-native** when Orca is installed (tracked Task/Dispatch provenance, event-driven `worker_done`/`ask`/`escalation` mail, native liveness), plain tmux otherwise — with two human gates around it. |
 | **memory-loop** | A memory lifecycle for your agent — a save gate against hallucinated memories, tiered expiry with archive-not-delete, a periodic learning-review nudge, a habit-distillation frame (HABITS.md), and an optional one-time identity setup (the assistant can even pick its own name). |
 
 ## Install
@@ -68,7 +68,28 @@ through the guard and shows each block/ask decision, **without executing any of 
 
 See [`plugins/guardrails/README.md`](plugins/guardrails/README.md) for the full rule list and configuration.
 
-## Works inside an orchestrator (Orca, tmux)
+## Built for orchestration — Orca-native, tmux-fallback
+
+groundwork's quality loop scales past one session. dev-loop's `orchestrate` is a
+**multi-session orchestrator**: it decomposes one natural-language goal into a
+dependency graph, and a ready-set scheduler starts each task the moment its
+dependencies are approved and a session slot frees — no wave barriers. Every
+worker runs the same wiki-grounded verification loop (with per-role model
+selection: a cheap worker model, a strong planner/auditor), and two human gates
+(task split, pre-merge) bracket the autonomy.
+
+**Orca is the first-class substrate.** With the Orca CLI installed, the
+coordinator drives spawn *and supervision* through Orca orchestration: every
+task phase is a tracked Task + Dispatch, and the coordinator blocks on pushed
+`worker_done` / `escalation` / `question` mail instead of polling on a timer —
+a worker's blocking question reaches you in seconds. Liveness asks two
+questions (is the terminal alive? is the pane actually moving?), so a wedged
+worker is caught instead of waited out. Without Orca, the same run works on
+plain tmux with a hardened watch loop: a worker's question file wakes the
+coordinator, a silent pane surfaces as a stall with a classify-then-act
+playbook, and an on-screen chooser is answered with allowlisted key events.
+
+### The guardrails escalation contract
 
 A guard that stops to ask is fine when a human is watching. In a headless worker
 session spawned by an orchestrator, an `ask` is a prompt nobody can answer — the
