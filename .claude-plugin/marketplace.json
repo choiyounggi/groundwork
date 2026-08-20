@@ -37,7 +37,7 @@
       },
       "source": "./plugins/memory-loop",
       "homepage": "https://github.com/choiyounggi/groundwork",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "tags": [
         "memory",
         "habits",
