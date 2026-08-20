@@ -2,3 +2,5 @@
 *.old
 .DS_Store
 node_modules/
+.orchestration/
+.worktrees/

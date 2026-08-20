@@ -59,6 +59,7 @@ the other grows a continuous, self-correcting agent.
 | `identity-context.sh` | SessionStart | Injects "The user's name is X. Your name is Y." — or offers a one-time name setup when unconfigured; silent forever after a decline |
 | `memory-expiry-sweep.sh` | SessionStart | Moves lapsed `tier: short` memories into `archived/` (never deletes) and reports, so the agent tidies the index and offers promotions |
 | `learning-nudge.sh` | Stop | Every N responses, reminds the agent to check the recent work for habits, skills, and memories worth persisting — each routed through the save gate |
+| `tutor-due-check.sh` | SessionStart | One quiet reminder line when tutor items are due, silent otherwise |
 
 ## Skills
 
@@ -69,6 +70,39 @@ the other grows a continuous, self-correcting agent.
 | `remember` | The save gate: evidence check → tier confirm → expiry confirm → write |
 | `consolidate` | Periodically merge long-tier memory — dedupe, resolve contradictions to the current truth, absolutize dates — proposed for your confirmation before any write; discards to `archived/`, never deletes |
 | `habit` | Distill a lesson into HABITS.md (🟢 practice / 🛑 hard line), merge over multiply, escalate to hooks/skills when warranted |
+| `tutor` | Spaced-repetition self-quiz over lessons already in HABITS.md — one novel transfer question per due item, anti-sycophancy grading, and a 1-4 recall rating |
+
+## Tutor
+
+`habit` turns corrections and incidents into standing practice; `tutor` closes
+the loop by testing whether the practice was actually internalized.
+
+- **Sync** — compare items already tracked (`list`) against HABITS.md's 🟢/🛑
+  entries; propose new items for anything uncovered, but only after the user
+  confirms each one (never bulk-generated from raw memory).
+- **Quiz** — for each due item (capped at `tutorSessionCap`), ask one novel
+  transfer question (never the original incident behind the lesson), grade
+  against a private model answer with anti-sycophancy diagnosis before any
+  verdict, ask one "why / what-if" follow-up, then let the user confirm a
+  1-4 recall rating before it's recorded.
+- **Reminder** — `tutor-due-check.sh` (SessionStart) prints one quiet line
+  when items are due, silent otherwise.
+
+Scheduling is Leitner box-based (5 boxes, intervals 1/3/7/21/60 days; a
+rating of 1 resets to box 0, 2 holds the box, 3-4 advances it — and once an
+item is at box 3 or higher, 3 consecutive rating-≥3 reviews from there retire
+it). Every review is appended to a
+timestamped log (`item_id`, `rating`, `ts`) — a structure an FSRS-style
+scheduler could consume later without a state migration.
+
+State lives in
+`~/.claude/groundwork/memory-loop/tutor/{items.json,reviews.jsonl}`, owned
+entirely by `tutor-schedule.sh` — never hand-edit it.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `tutorSessionCap` | `3` | Max due items surfaced per `due` call (session quiz size) |
+| `tutorEnabled` | `true` | Set `false` to silence the due-reminder hook and the `due` subcommand |
 
 ## Configure
 
