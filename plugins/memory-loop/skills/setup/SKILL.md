@@ -30,7 +30,10 @@ the case records they point to, which do not:
   cp "${CLAUDE_PLUGIN_ROOT}/templates/HABITS-CASES.md" ~/.claude/groundwork/HABITS-CASES.md
   ```
 - If either already exists, **never overwrite it** — it holds the user's
-  accumulated habits.
+  accumulated habits. Because of that, re-running this step is also the
+  migration path for a HABITS.md that predates the two-file layout: the cases
+  file gets created, the habit file is left exactly as it is. (The `habit`
+  skill describes how to move the prose across.)
 - Then *suggest* (do not apply) adding an import line to the user's own
   `~/.claude/CLAUDE.md` so the habits load into every session — show them the
   exact line and let them add it:

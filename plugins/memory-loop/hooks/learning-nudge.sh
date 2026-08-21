@@ -82,12 +82,21 @@ If there is nothing worth persisting, say "Learning review: nothing to persist."
 # so past a threshold the nudge also asks for that prose to move out.
 SPLIT_WARN=$(cfg_num habitsSplitWarnBytes 40000)
 HABITS_FILE="${HOME}/.claude/groundwork/HABITS.md"
+CASES_FILE="${HOME}/.claude/groundwork/HABITS-CASES.md"
 SPLIT_NOTE=""
 if [ "$SPLIT_WARN" -gt 0 ] 2>/dev/null && [ -f "$HABITS_FILE" ]; then
   SZ=$(wc -c < "$HABITS_FILE" 2>/dev/null | tr -d ' ')
   case "$SZ" in ''|*[!0-9]*) SZ=0 ;; esac
   if [ "$SZ" -gt "$SPLIT_WARN" ]; then
-    SPLIT_NOTE=$(printf '\n\nAlso: HABITS.md is %s bytes, past the %s-byte split threshold. It loads on every request, so background prose sitting there costs tokens on every turn. Move the (<- background: ...) text out of the 🟢 Practices entries into HABITS-CASES.md, leaving a [Cnn] pointer on each rule (the "habit" skill has the layout). Keep 🛑 hard lines inline — for a prohibition the origin is the judgment.' "$SZ" "$SPLIT_WARN")
+    # A HABITS.md predating the two-file layout has no cases file beside it:
+    # setup never overwrites existing files, so a plugin update alone does not
+    # create one. Say so, or the advice points at a file that isn't there.
+    if [ -f "$CASES_FILE" ]; then
+      MOVE_TO='into HABITS-CASES.md, leaving a [Cnn] pointer on each rule'
+    else
+      MOVE_TO='into a new HABITS-CASES.md beside it (this habit file predates the two-file layout — re-running the setup skill drops in the template without touching HABITS.md), leaving a [Cnn] pointer on each rule'
+    fi
+    SPLIT_NOTE=$(printf '\n\nAlso: HABITS.md is %s bytes, past the %s-byte split threshold. It loads on every request, so background prose sitting there costs tokens on every turn. Move the (<- background: ...) text out of the 🟢 Practices entries %s (the "habit" skill has the layout). Keep 🛑 hard lines inline — for a prohibition the origin is the judgment.' "$SZ" "$SPLIT_WARN" "$MOVE_TO")
   fi
 fi
 

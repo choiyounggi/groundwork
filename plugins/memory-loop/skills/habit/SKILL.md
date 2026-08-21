@@ -50,6 +50,26 @@ When the learning-nudge hook reports that HABITS.md crossed the split
 threshold, move the background prose still sitting in 🟢 Practices out to
 HABITS-CASES.md and leave pointers behind.
 
+### Migrating a habit file that predates this layout
+
+A HABITS.md written before the split has its backgrounds inline and no cases
+file beside it. **A plugin update does not migrate it** — templates are only
+copied by `setup`, which never overwrites an existing file. So the code changes
+underneath while the data stays as it was; closing that gap is a deliberate step:
+
+1. Create `HABITS-CASES.md` next to HABITS.md — re-running the `setup` skill
+   drops in the template and leaves HABITS.md untouched.
+2. For each 🟢 / ⚙️ entry, cut its `(← background: …)` text into a `## Cnn`
+   section in the cases file and leave `[Cnn]` on the rule. Number them in the
+   order the rules appear.
+3. Leave 🛑 entries exactly as they are.
+4. Do **not** add HABITS-CASES.md to the CLAUDE.md import — not being loaded is
+   the entire point.
+
+Relocate prose verbatim. Never reword a rule while moving its background: a
+migration that edits behavior while claiming to reorganize is the hardest kind
+of change to notice afterwards.
+
 ## Merge, don't multiply
 
 Before adding, scan HABITS.md for an entry with an overlapping trigger. If one

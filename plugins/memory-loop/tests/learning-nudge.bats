@@ -155,3 +155,32 @@ make_habits() {                      # $1 = size in bytes
   [ "$status" -eq 0 ]
   [[ "$(printf '%s' "$output" | jq -r '.reason')" == *"40000-byte"* ]]
 }
+
+# A HABITS.md predating the two-file layout has no cases file beside it, and a
+# plugin update does not create one (setup never overwrites). The notice must
+# say so rather than pointing at a file that isn't there — and must stop saying
+# it once the file exists.
+
+@test "split guard: without a cases file the notice explains the migration" {
+  make_habits 50000
+  printf '9' > "$STATE/nudge-counter"
+  run run_hook
+  [ "$status" -eq 0 ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" == *"predates the two-file layout"* ]]
+  [[ "$reason" == *"setup skill"* ]]
+  [[ "$reason" == *"without touching HABITS.md"* ]]
+}
+
+@test "split guard: with a cases file the migration wording is gone" {
+  make_habits 50000
+  printf 'x' > "$HOME/.claude/groundwork/HABITS-CASES.md"
+  printf '9' > "$STATE/nudge-counter"
+  run run_hook
+  [ "$status" -eq 0 ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" != *"predates the two-file layout"* ]]
+  # the split advice itself must survive
+  [[ "$reason" == *"split threshold"* ]]
+  [[ "$reason" == *"[Cnn] pointer"* ]]
+}

@@ -35,7 +35,25 @@ Plus two things a lifecycle makes possible:
 ```
 
 Then run the `setup` skill (ask for "set up memory-loop") — it walks through
-identity, HABITS.md, and config, and verifies the hooks respond.
+identity, the habit files, and config, and verifies the hooks respond.
+
+## Upgrading from a single-file HABITS.md
+
+Hooks and skills update with the plugin; **your HABITS.md does not.** Templates
+are only copied by `setup`, and `setup` never overwrites an existing file — so
+after an upgrade the code knows about the two-file layout while your habit file
+is still whatever you had. To close that gap:
+
+1. Re-run the `setup` skill — it creates `HABITS-CASES.md` and leaves HABITS.md
+   untouched.
+2. Ask for the `habit` skill's migration step: move each 🟢/⚙️ entry's
+   `(← background: …)` prose into a `## Cnn` section in the cases file, leaving
+   `[Cnn]` on the rule. 🛑 entries stay as they are.
+3. Leave your CLAUDE.md import pointing at HABITS.md only.
+
+Doing nothing is also fine: a single-file HABITS.md keeps working. The
+learning-review nudge will mention the split once the file crosses
+`habitsSplitWarnBytes`, and it tells you when no cases file exists yet.
 
 ## Relationship to native memory
 
