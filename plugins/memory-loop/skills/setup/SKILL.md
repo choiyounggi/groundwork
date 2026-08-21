@@ -15,19 +15,25 @@ See that skill for the schema and the confirmation rule.
 
 ## 2. HABITS.md
 
-The habit-distillation frame lives at:
+The habit-distillation frame is two files — rules that load every session, and
+the case records they point to, which do not:
 
 ```
-~/.claude/groundwork/HABITS.md
+~/.claude/groundwork/HABITS.md         (imported into every session)
+~/.claude/groundwork/HABITS-CASES.md   (on demand, via [Cnn] pointers)
 ```
 
-- If it does not exist, copy the template:
+- If they do not exist, copy the templates:
   ```bash
   mkdir -p ~/.claude/groundwork
   cp "${CLAUDE_PLUGIN_ROOT}/templates/HABITS.md" ~/.claude/groundwork/HABITS.md
+  cp "${CLAUDE_PLUGIN_ROOT}/templates/HABITS-CASES.md" ~/.claude/groundwork/HABITS-CASES.md
   ```
-- If it already exists, **never overwrite it** — it holds the user's
-  accumulated habits.
+- If either already exists, **never overwrite it** — it holds the user's
+  accumulated habits. Because of that, re-running this step is also the
+  migration path for a HABITS.md that predates the two-file layout: the cases
+  file gets created, the habit file is left exactly as it is. (The `habit`
+  skill describes how to move the prose across.)
 - Then *suggest* (do not apply) adding an import line to the user's own
   `~/.claude/CLAUDE.md` so the habits load into every session — show them the
   exact line and let them add it:
@@ -35,7 +41,8 @@ The habit-distillation frame lives at:
   @groundwork/HABITS.md
   ```
   (The path is relative to `~/.claude/`. Never edit the user's CLAUDE.md
-  yourself.)
+  yourself.) Import **only** HABITS.md — HABITS-CASES.md is deliberately left
+  out so its prose is not re-read on every request.
 
 ## 3. Config
 
