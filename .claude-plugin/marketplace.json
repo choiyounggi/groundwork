@@ -29,7 +29,7 @@
     },
     {
       "name": "memory-loop",
-      "description": "A memory lifecycle for Claude Code's native memory — a save gate against hallucinated memories, tiered expiry (short-tier memories archived, never deleted), a propose-then-confirm consolidation pass that merges and dedupes long-tier memory, a periodic learning-review nudge, a habit-distillation frame (HABITS.md), and an optional one-time identity setup where the assistant can pick its own name. Local-only.",
+      "description": "A memory lifecycle for Claude Code's native memory — a save gate against hallucinated memories, tiered expiry (short-tier memories archived, never deleted), a propose-then-confirm consolidation pass that merges and dedupes long-tier memory, a periodic learning-review nudge, a two-file habit frame (HABITS.md always loaded, HABITS-CASES.md on demand), and an optional one-time identity setup where the assistant can pick its own name. Local-only.",
       "category": "development",
       "author": {
         "name": "choiyounggi",
@@ -37,7 +37,7 @@
       },
       "source": "./plugins/memory-loop",
       "homepage": "https://github.com/choiyounggi/groundwork",
-      "version": "1.3.0",
+      "version": "1.4.0",
       "tags": [
         "memory",
         "habits",

@@ -19,7 +19,10 @@ learning nudge      save gate +            expiry sweep →
 Plus two things a lifecycle makes possible:
 
 - **HABITS.md** — a distillation frame that turns corrections and incidents
-  into standing behavior (positive practices 🟢, hard lines 🛑).
+  into standing behavior (positive practices 🟢, hard lines 🛑). It is two
+  files: the rules load every session, while their case records live in
+  `HABITS-CASES.md` and are read on demand via `[Cnn]` pointers — an
+  always-loaded file is re-read on every request, so it has to stay small.
 - **Identity** — a one-time, declinable offer to set names for the user *and*
   the assistant (the assistant may pick its own name), injected as context
   every session. Continuity you can address by name.
@@ -65,11 +68,11 @@ the other grows a continuous, self-correcting agent.
 
 | Skill | Purpose |
 |-------|---------|
-| `setup` | First-time walkthrough: identity → HABITS.md → config → verify |
+| `setup` | First-time walkthrough: identity → HABITS.md + HABITS-CASES.md → config → verify |
 | `identity` | Set, change, or decline the user/assistant names |
 | `remember` | The save gate: evidence check → tier confirm → expiry confirm → write |
 | `consolidate` | Periodically merge long-tier memory — dedupe, resolve contradictions to the current truth, absolutize dates — proposed for your confirmation before any write; discards to `archived/`, never deletes |
-| `habit` | Distill a lesson into HABITS.md (🟢 practice / 🛑 hard line), merge over multiply, escalate to hooks/skills when warranted |
+| `habit` | Distill a lesson into HABITS.md (🟢 practice / 🛑 hard line) with its background filed in `HABITS-CASES.md` behind a `[Cnn]` pointer, merge over multiply, escalate to hooks/skills when warranted |
 | `tutor` | Spaced-repetition self-quiz over lessons already in HABITS.md — one novel transfer question per due item, anti-sycophancy grading, and a 1-4 recall rating |
 
 ## Tutor
@@ -114,6 +117,7 @@ global overrides built-in defaults.
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `nudgeInterval` | `10` | Fire the learning-review nudge every N responses |
+| `habitsSplitWarnBytes` | `40000` | Past this size, the nudge also asks for HABITS.md background prose to move into `HABITS-CASES.md` (`0` disables) |
 | `extraMemoryDirs` | `[]` | Additional memory directories to sweep, beyond the current project's own (`~` supported) |
 
 State (identity, nudge counter) lives in `~/.claude/groundwork/memory-loop/`.

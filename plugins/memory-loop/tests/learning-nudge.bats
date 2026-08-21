@@ -74,3 +74,84 @@ run_hook() {
   [ "$status" -eq 0 ]
   [ "$(printf '%s' "$output" | jq -r '.decision')" = "block" ]
 }
+
+# --- HABITS.md split guard -------------------------------------------------
+# HABITS.md is imported into every session, so it is re-read on every request.
+# Past a byte threshold the nudge also asks for background prose to move into
+# HABITS-CASES.md. Bidirectional: it must stay quiet below the threshold, or
+# the reminder becomes noise that gets ignored.
+
+make_habits() {                      # $1 = size in bytes
+  mkdir -p "$HOME/.claude/groundwork"
+  head -c "$1" /dev/zero | tr '\0' 'x' > "$HOME/.claude/groundwork/HABITS.md"
+}
+
+@test "split guard: no HABITS.md means no split notice" {
+  printf '9' > "$STATE/nudge-counter"
+  run run_hook
+  [ "$status" -eq 0 ]
+  [[ "$(printf '%s' "$output" | jq -r '.reason')" != *"split threshold"* ]]
+}
+
+@test "split guard: below the threshold stays quiet" {
+  make_habits 1000
+  printf '9' > "$STATE/nudge-counter"
+  run run_hook
+  [ "$status" -eq 0 ]
+  [[ "$(printf '%s' "$output" | jq -r '.reason')" != *"split threshold"* ]]
+}
+
+@test "split guard: above the threshold names the size, the limit, and the target file" {
+  make_habits 50000
+  printf '9' > "$STATE/nudge-counter"
+  run run_hook
+  [ "$status" -eq 0 ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" == *"split threshold"* ]]
+  [[ "$reason" == *"50000 bytes"* ]]
+  [[ "$reason" == *"40000-byte"* ]]
+  [[ "$reason" == *"HABITS-CASES.md"* ]]
+  [[ "$reason" == *"hard lines inline"* ]]
+  # the learning review itself must still be there
+  [[ "$reason" == *"Learning review"* ]]
+}
+
+@test "split guard: habitsSplitWarnBytes 0 disables the check" {
+  make_habits 50000
+  printf '{"habitsSplitWarnBytes": 0}' > "$HOME/.claude/groundwork/memory-loop.json"
+  printf '9' > "$STATE/nudge-counter"
+  run run_hook
+  [ "$status" -eq 0 ]
+  [[ "$(printf '%s' "$output" | jq -r '.reason')" != *"split threshold"* ]]
+}
+
+@test "split guard: a custom threshold is honored and reported" {
+  make_habits 2000
+  printf '{"habitsSplitWarnBytes": 1000}' > "$HOME/.claude/groundwork/memory-loop.json"
+  printf '9' > "$STATE/nudge-counter"
+  run run_hook
+  [ "$status" -eq 0 ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" == *"split threshold"* ]]
+  [[ "$reason" == *"1000-byte"* ]]
+}
+
+@test "split guard: repo config wins over global for habitsSplitWarnBytes" {
+  make_habits 5000
+  printf '{"habitsSplitWarnBytes": 99999}' > "$HOME/.claude/groundwork/memory-loop.json"
+  mkdir -p "$BATS_TEST_TMPDIR/repo/.groundwork"
+  printf '{"habitsSplitWarnBytes": 1000}' > "$BATS_TEST_TMPDIR/repo/.groundwork/memory-loop.json"
+  printf '9' > "$STATE/nudge-counter"
+  run bash -c 'cd "$1" && jq -cn "{stop_hook_active: false}" | bash "$2"' _ "$BATS_TEST_TMPDIR/repo" "$HOOK"
+  [ "$status" -eq 0 ]
+  [[ "$(printf '%s' "$output" | jq -r '.reason')" == *"split threshold"* ]]
+}
+
+@test "split guard: non-numeric habitsSplitWarnBytes falls back to 40000" {
+  make_habits 50000
+  printf '{"habitsSplitWarnBytes": "big"}' > "$HOME/.claude/groundwork/memory-loop.json"
+  printf '9' > "$STATE/nudge-counter"
+  run run_hook
+  [ "$status" -eq 0 ]
+  [[ "$(printf '%s' "$output" | jq -r '.reason')" == *"40000-byte"* ]]
+}
