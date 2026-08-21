@@ -75,6 +75,16 @@ run_hook() {
   [ "$(printf '%s' "$output" | jq -r '.decision')" = "block" ]
 }
 
+@test "nudgeInterval 0 falls back to the default of 10" {
+  mkdir -p "$HOME/.claude/groundwork"
+  printf '{"nudgeInterval": 0}' > "$HOME/.claude/groundwork/memory-loop.json"
+  printf '9' > "$STATE/nudge-counter"
+  run run_hook
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s' "$output" | jq -r '.decision')" = "block" ]
+  [[ "$(printf '%s' "$output" | jq -r '.reason')" == *"Learning review"* ]]
+}
+
 # --- HABITS.md split guard -------------------------------------------------
 # HABITS.md is imported into every session, so it is re-read on every request.
 # Past a byte threshold the nudge also asks for background prose to move into
@@ -90,7 +100,11 @@ make_habits() {                      # $1 = size in bytes
   printf '9' > "$STATE/nudge-counter"
   run run_hook
   [ "$status" -eq 0 ]
-  [[ "$(printf '%s' "$output" | jq -r '.reason')" != *"split threshold"* ]]
+  # the nudge itself must have fired, or the absence check proves nothing
+  [ "$(printf '%s' "$output" | jq -r '.decision')" = "block" ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" == *"Learning review"* ]]
+  [[ "$reason" != *"split threshold"* ]]
 }
 
 @test "split guard: below the threshold stays quiet" {
@@ -98,7 +112,10 @@ make_habits() {                      # $1 = size in bytes
   printf '9' > "$STATE/nudge-counter"
   run run_hook
   [ "$status" -eq 0 ]
-  [[ "$(printf '%s' "$output" | jq -r '.reason')" != *"split threshold"* ]]
+  [ "$(printf '%s' "$output" | jq -r '.decision')" = "block" ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" == *"Learning review"* ]]
+  [[ "$reason" != *"split threshold"* ]]
 }
 
 @test "split guard: above the threshold names the size, the limit, and the target file" {
@@ -122,7 +139,10 @@ make_habits() {                      # $1 = size in bytes
   printf '9' > "$STATE/nudge-counter"
   run run_hook
   [ "$status" -eq 0 ]
-  [[ "$(printf '%s' "$output" | jq -r '.reason')" != *"split threshold"* ]]
+  [ "$(printf '%s' "$output" | jq -r '.decision')" = "block" ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" == *"Learning review"* ]]
+  [[ "$reason" != *"split threshold"* ]]
 }
 
 @test "split guard: a custom threshold is honored and reported" {
