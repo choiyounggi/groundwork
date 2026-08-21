@@ -135,7 +135,9 @@ global overrides built-in defaults.
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `nudgeInterval` | `10` | Fire the learning-review nudge every N responses |
-| `habitsSplitWarnBytes` | `40000` | Past this size, the nudge also asks for HABITS.md background prose to move into `HABITS-CASES.md` (`0` disables) |
+| `habitsSplitWarnBytes` | `40000` | Past this size, the nudge also asks for the habit file's background prose to move into the cases file (`0` disables) |
+| `habitsPath` | `~/.claude/groundwork/HABITS.md` | The habit file the size check reads — set this if you import your own file from elsewhere (`~` supported) |
+| `habitsCasesPath` | `HABITS-CASES.md` beside `habitsPath` | Where its case records live (`~` supported) |
 | `extraMemoryDirs` | `[]` | Additional memory directories to sweep, beyond the current project's own (`~` supported) |
 
 State (identity, nudge counter) lives in `~/.claude/groundwork/memory-loop/`.

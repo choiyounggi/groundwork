@@ -184,3 +184,45 @@ make_habits() {                      # $1 = size in bytes
   [[ "$reason" == *"split threshold"* ]]
   [[ "$reason" == *"[Cnn] pointer"* ]]
 }
+
+# The habit file is not always at the default path (a user may import their own
+# under a different name or directory), so the size check follows habitsPath /
+# habitsCasesPath. Without this the check is silently absent for exactly the
+# people whose file grew large.
+
+@test "split guard: habitsPath redirects the check and the message names that file" {
+  mkdir -p "$HOME/custom" "$HOME/.claude/groundwork"
+  head -c 50000 /dev/zero | tr '\0' 'x' > "$HOME/custom/my-habits.md"
+  printf '{"habitsPath": "%s/custom/my-habits.md"}' "$HOME" \
+    > "$HOME/.claude/groundwork/memory-loop.json"
+  printf '9' > "$STATE/nudge-counter"
+  run run_hook
+  [ "$status" -eq 0 ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" == *"my-habits.md is 50000 bytes"* ]]
+  [[ "$reason" != *"HABITS.md is"* ]]
+}
+
+@test "split guard: habitsCasesPath is honored for the exists check" {
+  mkdir -p "$HOME/custom" "$HOME/.claude/groundwork"
+  head -c 50000 /dev/zero | tr '\0' 'x' > "$HOME/custom/my-habits.md"
+  printf 'x' > "$HOME/custom/cases-elsewhere.md"
+  printf '{"habitsPath": "%s/custom/my-habits.md", "habitsCasesPath": "%s/custom/cases-elsewhere.md"}' \
+    "$HOME" "$HOME" > "$HOME/.claude/groundwork/memory-loop.json"
+  printf '9' > "$STATE/nudge-counter"
+  run run_hook
+  [ "$status" -eq 0 ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" == *"into cases-elsewhere.md"* ]]
+  [[ "$reason" != *"predates the two-file layout"* ]]
+}
+
+@test "split guard: a ~ prefixed habitsPath is expanded" {
+  mkdir -p "$HOME/.claude/groundwork"
+  head -c 50000 /dev/zero | tr '\0' 'x' > "$HOME/tilde-habits.md"
+  printf '{"habitsPath": "~/tilde-habits.md"}' > "$HOME/.claude/groundwork/memory-loop.json"
+  printf '9' > "$STATE/nudge-counter"
+  run run_hook
+  [ "$status" -eq 0 ]
+  [[ "$(printf '%s' "$output" | jq -r '.reason')" == *"tilde-habits.md is 50000 bytes"* ]]
+}
