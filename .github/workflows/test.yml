@@ -30,3 +30,19 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Lint hooks
         run: shellcheck -s bash plugins/*/hooks/*.sh
+
+  version-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install bats + jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq
+
+      - name: Run check-versions tests
+        run: bats tests
+
+      - name: Check marketplace/plugin.json version sync
+        run: sh scripts/check-versions.sh
