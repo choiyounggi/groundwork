@@ -17,7 +17,7 @@
       },
       "source": "./plugins/guardrails",
       "homepage": "https://github.com/choiyounggi/groundwork",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "tags": [
         "security",
         "guardrails",
@@ -37,7 +37,7 @@
       },
       "source": "./plugins/memory-loop",
       "homepage": "https://github.com/choiyounggi/groundwork",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "tags": [
         "memory",
         "habits",
