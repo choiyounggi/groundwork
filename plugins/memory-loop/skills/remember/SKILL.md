@@ -1,6 +1,6 @@
 ---
 name: remember
-description: The save gate for persistent memories — confirm tier (long/short) and expiry with the user before writing, so hallucinated or transient facts never enter long-term memory. Use whenever saving a memory file, and when the expiry sweep reports archived memories.
+description: Save gate for persistent memories — confirm tier (long/short) and expiry with the user before writing, so hallucinated or transient facts never enter long-term memory. Use whenever saving a memory file, and when the expiry sweep reports archived memories.
 ---
 
 # memory-loop: remember

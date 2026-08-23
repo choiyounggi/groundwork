@@ -33,7 +33,7 @@ Claude Code는 이미 메모리를 *저장*할 수 있습니다. 없는 것은 �
 /plugin install memory-loop@groundwork
 ```
 
-그다음 `setup` 스킬을 실행하세요 ("set up memory-loop"라고 요청) — identity,
+그다음 `/memory-loop:setup`을 실행하세요 (슬래시 커맨드 전용) — identity,
 습관 파일, 설정을 안내하고 훅이 응답하는지 검증합니다.
 
 ## 단일 파일 HABITS.md에서 업그레이드
@@ -43,7 +43,7 @@ Claude Code는 이미 메모리를 *저장*할 수 있습니다. 없는 것은 �
 때문입니다. 그래서 업그레이드 후에는 코드만 2계층 구조를 알고 데이터는 그대로인
 상태가 됩니다. 그 간격을 메우려면:
 
-1. `setup` 스킬을 다시 실행하세요 — `HABITS-CASES.md`가 생성되고 HABITS.md는
+1. `/memory-loop:setup`을 다시 실행하세요 — `HABITS-CASES.md`가 생성되고 HABITS.md는
    그대로 유지됩니다.
 2. `habit` 스킬의 마이그레이션 절차를 요청하세요 — 각 🟢/⚙️ 항목의
    `(← background: …)` 산문을 사례 파일의 `## Cnn` 섹션으로 옮기고 규칙에는
@@ -84,7 +84,7 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 
 | 스킬 | 용도 |
 |-------|---------|
-| `setup` | 최초 세팅 안내: identity → HABITS.md + HABITS-CASES.md → 설정 → 검증 |
+| `setup` *(슬래시 커맨드 전용)* | 최초 세팅 안내: identity → HABITS.md + HABITS-CASES.md → 설정 → 검증 |
 | `identity` | 사용자/어시스턴트 이름 설정·변경·거절 |
 | `remember` | 저장 게이트: 근거 확인 → tier 확인 → 만료 확인 → 기록 |
 | `consolidate` | long-tier 메모리를 주기적으로 통합 — 중복 병합·모순은 최신 진실로 해소·날짜 절대화 — 쓰기 전 확인을 거치고, `archived/`로 보내며 삭제는 하지 않음 |

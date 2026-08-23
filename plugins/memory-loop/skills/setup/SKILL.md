@@ -1,6 +1,7 @@
 ---
 name: setup
-description: First-time memory-loop setup — offer identity names, create HABITS.md from the template, write an initial config, and verify the hooks respond. Use right after installing the memory-loop plugin, or when asked to "set up memory-loop".
+description: First-time memory-loop setup — offer identity names, create HABITS.md from the template, write an initial config, and verify the hooks respond.
+disable-model-invocation: true
 ---
 
 # memory-loop: setup

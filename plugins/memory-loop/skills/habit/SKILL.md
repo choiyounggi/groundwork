@@ -7,7 +7,7 @@ description: Distill a lesson — a mistake, a user correction, or a praised beh
 
 HABITS.md (default `~/.claude/groundwork/HABITS.md`, created by the `setup`
 skill) is the frame where lessons become standing behavior. If the file is
-missing, offer to run setup step 2 first.
+missing, tell the user to run `/memory-loop:setup` (step 2) first.
 
 ## Classify first — the damage question
 
