@@ -34,7 +34,7 @@ Plus two things a lifecycle makes possible:
 /plugin install memory-loop@groundwork
 ```
 
-Then run the `setup` skill (ask for "set up memory-loop") — it walks through
+Then run `/memory-loop:setup` (slash-command only) — it walks through
 identity, the habit files, and config, and verifies the hooks respond.
 
 ## Upgrading from a single-file HABITS.md
@@ -44,7 +44,7 @@ are only copied by `setup`, and `setup` never overwrites an existing file — so
 after an upgrade the code knows about the two-file layout while your habit file
 is still whatever you had. To close that gap:
 
-1. Re-run the `setup` skill — it creates `HABITS-CASES.md` and leaves HABITS.md
+1. Re-run `/memory-loop:setup` — it creates `HABITS-CASES.md` and leaves HABITS.md
    untouched.
 2. Ask for the `habit` skill's migration step: move each 🟢/⚙️ entry's
    `(← background: …)` prose into a `## Cnn` section in the cases file, leaving
@@ -86,7 +86,7 @@ the other grows a continuous, self-correcting agent.
 
 | Skill | Purpose |
 |-------|---------|
-| `setup` | First-time walkthrough: identity → HABITS.md + HABITS-CASES.md → config → verify |
+| `setup` *(slash-command only)* | First-time walkthrough: identity → HABITS.md + HABITS-CASES.md → config → verify |
 | `identity` | Set, change, or decline the user/assistant names |
 | `remember` | The save gate: evidence check → tier confirm → expiry confirm → write |
 | `consolidate` | Periodically merge long-tier memory — dedupe, resolve contradictions to the current truth, absolutize dates — proposed for your confirmation before any write; discards to `archived/`, never deletes |

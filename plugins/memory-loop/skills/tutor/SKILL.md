@@ -1,6 +1,6 @@
 ---
 name: tutor
-description: Run a spaced-repetition self-quiz over lessons already distilled into HABITS.md — one novel-scenario transfer question per due item, anti-sycophancy grading, and a 1-4 recall rating logged through the tutor scheduler. Use when the user says 퀴즈, 복습, "quiz me", tutor, 테스트해줘, or replies to a memory-loop tutor due-reminder line ("N개 복습 항목이 대기 중").
+description: Run a spaced-repetition self-quiz over lessons already distilled into HABITS.md — one novel-scenario transfer question per due item, anti-sycophancy grading, and a 1-4 recall rating logged through the tutor scheduler. Use when the user asks to be quizzed or reviewed (English or Korean), or replies to a memory-loop tutor due-reminder line ("N개 복습 항목이 대기 중").
 ---
 
 # memory-loop: tutor

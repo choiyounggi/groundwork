@@ -1,6 +1,6 @@
 ---
 name: self-test
-description: Prove the guardrails Bash guard is live — runs a simulation that feeds representative dangerous commands (curl|sh, rm -rf, DROP TABLE, kubectl delete, cloud deletes, …) through the real guard and shows the block/ask decision for each, WITHOUT executing any of them. Use when asked to "test guardrails", "is the guard working", "guardrails self-test", or right after installing guardrails.
+description: Prove the guardrails Bash guard is live — runs a simulation that feeds representative dangerous commands (curl|sh, rm -rf, DROP TABLE, kubectl delete, cloud deletes, …) through the real guard and shows the block/ask decision for each, WITHOUT executing any of them. Use when asked to verify the guard is working, or right after installing guardrails.
 ---
 
 # guardrails: self-test

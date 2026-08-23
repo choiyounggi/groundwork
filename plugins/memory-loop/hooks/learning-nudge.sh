@@ -122,7 +122,7 @@ if [ "$SPLIT_WARN" -gt 0 ] 2>/dev/null && [ -f "$HABITS_FILE" ]; then
     if [ -f "$CASES_FILE" ]; then
       MOVE_TO=$(printf 'into %s, leaving a [Cnn] pointer on each rule' "$CASES_NAME")
     else
-      MOVE_TO=$(printf 'into a new %s beside it (this habit file predates the two-file layout — re-running the setup skill drops in the template without touching %s), leaving a [Cnn] pointer on each rule' "$CASES_NAME" "$HABITS_NAME")
+      MOVE_TO=$(printf 'into a new %s beside it (this habit file predates the two-file layout — tell the user to run /memory-loop:setup, the setup skill, to drop in the template without touching %s), leaving a [Cnn] pointer on each rule' "$CASES_NAME" "$HABITS_NAME")
     fi
     SPLIT_NOTE=$(printf '\n\nAlso: %s is %s bytes, past the %s-byte split threshold. It loads on every request, so background prose sitting there costs tokens on every turn. Move the (<- background: ...) text out of the 🟢 Practices entries %s (the "habit" skill has the layout). Keep 🛑 hard lines inline — for a prohibition the origin is the judgment.' "$HABITS_NAME" "$SZ" "$SPLIT_WARN" "$MOVE_TO")
   fi
