@@ -1,0 +1,61 @@
+# groundwork — auto-tag a plugin release when its version bump lands on
+# main, instead of a human hand-creating `git tag vX.Y.Z` after the fact.
+#
+# scripts/auto-tag.sh only DETECTS (need / skip / collision); this workflow
+# is what actually creates the tag and the GitHub Release for anything it
+# reports as `need:`. A collision (script exits 1) fails this job outright —
+# that is the tag-namespace check (the v1.3.0 incident) running at bump time
+# instead of at `git tag` time.
+#
+# Why this job creates the Release itself, instead of letting the existing
+# tag-triggered release.yml handle it: a tag pushed by a workflow using the
+# default GITHUB_TOKEN does NOT trigger other workflow runs (GitHub's
+# recursion-prevention guard on the built-in token). So `git push origin
+# <tag>` from this job would silently never fire release.yml. release.yml
+# is kept as-is for the manual path (a human running `git tag && git push`
+# with their own credentials still triggers it normally).
+name: Auto-tag release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  auto-tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # auto-tag.sh needs full tag + commit history to answer "does
+          # this tag exist yet, and if so, at what version".
+          fetch-depth: 0
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      # Fails the job (via pipefail) if auto-tag.sh exits 1 — a collision —
+      # surfacing it as a red CI check instead of a bad `git tag` later.
+      - name: Detect release status
+        run: bash scripts/auto-tag.sh | tee auto-tag-output.txt
+
+      - name: Create tags and releases for plugins that need them
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          while IFS=' ' read -r kind tag plugin; do
+            if [ "$kind" = "need:" ]; then
+              version="${tag#v}"
+              git tag "$tag"
+              git push origin "$tag"
+              gh release create "$tag" --title "$plugin $version" --generate-notes
+            fi
+          done < auto-tag-output.txt
