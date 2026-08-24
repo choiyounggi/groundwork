@@ -11,6 +11,20 @@ setup() {
   REPO_ROOT="${BATS_TEST_DIRNAME}/.."
 }
 
+# Checks the dev-loop marketplace entry's git ref against its version field —
+# an invariant check-versions.sh does not cover, since it skips non-local
+# (object) sources entirely. Echoes "ok" or "mismatch: ref=<r> version=<v>".
+check_devloop_ref_version_sync() {
+  jq -r '
+    (.plugins[] | select(.name == "dev-loop")) as $p
+    | ($p.source.ref // "none") as $ref
+    | ($p.version // "none") as $ver
+    | if $ref == ("v" + $ver) then "ok"
+      else "mismatch: ref=" + $ref + " version=" + $ver
+      end
+  ' "$1"
+}
+
 # Builds a minimal fixture repo tree at $FIXTURE with the given marketplace.json
 # body (a jq filter producing the .plugins array).
 make_fixture() {
@@ -61,4 +75,18 @@ make_fixture() {
   run "$SCRIPT" "$FIXTURE"
   [ "$status" -eq 2 ]
   printf '%s\n' "$output" | grep -qF "marketplace.json"
+}
+
+@test "normal: dev-loop marketplace ref tag matches its version field" {
+  run check_devloop_ref_version_sync "$REPO_ROOT/.claude-plugin/marketplace.json"
+  [ "$status" -eq 0 ]
+  [ "$output" = "ok" ]
+}
+
+@test "error: a dev-loop ref/version mismatch is detected, not silently accepted" {
+  make_fixture '{plugins: [{name: "dev-loop", source: {source: "url", url: "https://example.com/x.git", ref: "v2.0.0"}, version: "1.0.0"}]}'
+
+  run check_devloop_ref_version_sync "$FIXTURE/.claude-plugin/marketplace.json"
+  [ "$status" -eq 0 ]
+  [ "$output" = "mismatch: ref=v2.0.0 version=1.0.0" ]
 }
