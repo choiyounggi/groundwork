@@ -21,6 +21,11 @@ jobs:
       - name: Run memory-loop tests
         run: bats plugins/memory-loop/tests
 
+      # A workflow whose YAML does not parse is registered with NO triggers and
+      # silently never runs — this catches that before it reaches main.
+      - name: Check workflow YAML registers
+        run: bash scripts/check-workflows.sh
+
   shellcheck:
     runs-on: ubuntu-latest
     continue-on-error: true
