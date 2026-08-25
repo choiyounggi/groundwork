@@ -155,3 +155,94 @@ EOF
   [ "$status" -eq 2 ]
   [[ "$output" == *"usage:"* ]]
 }
+
+# --- contents: write allowlist ---------------------------------------------------
+#
+# main's ruleset bypasses the GitHub Actions app, so any write-capable workflow
+# can commit to main. The allowlist pins that set; these prove it is enforced.
+
+@test "a non-allowlisted workflow with contents: write is rejected" {
+  cat > "${WF}/sneaky.yml" <<'EOF'
+name: sneaky
+on:
+  push:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+EOF
+  run bash "$SCRIPT" "$ROOT"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not on WRITE_ALLOWLIST"* ]]
+}
+
+@test "job-level contents: write is caught too" {
+  cat > "${WF}/job-level.yml" <<'EOF'
+name: job level
+on:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - run: echo hi
+EOF
+  run bash "$SCRIPT" "$ROOT"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not on WRITE_ALLOWLIST"* ]]
+}
+
+@test "write-all is caught" {
+  cat > "${WF}/write-all.yml" <<'EOF'
+name: write all
+on:
+  push:
+permissions: write-all
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+EOF
+  run bash "$SCRIPT" "$ROOT"
+  [ "$status" -eq 1 ]
+}
+
+@test "contents: read is fine for a non-allowlisted workflow" {
+  cat > "${WF}/reader.yml" <<'EOF'
+name: reader
+on:
+  push:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+EOF
+  run bash "$SCRIPT" "$ROOT"
+  [ "$status" -eq 0 ]
+}
+
+@test "an allowlisted name keeps its write permission" {
+  cat > "${WF}/sync-dev-loop-pin.yml" <<'EOF'
+name: sync
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+EOF
+  run bash "$SCRIPT" "$ROOT"
+  [ "$status" -eq 0 ]
+}
