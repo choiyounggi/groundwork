@@ -1,0 +1,108 @@
+# Keep the dev-loop marketplace pin on dev-loop's latest release.
+#
+# dev-loop ships as a TAG-PINNED url source, so a dev-loop release reaches no
+# installed user until this repo's `source.ref` + `version` move. That step was
+# hand-done and got skipped (dev-loop v1.11.0 sat unreachable while `/plugin`
+# reported 1.10.0 as latest), so it runs on a schedule here instead.
+#
+# The PR is opened by GITHUB_TOKEN, which by design does NOT trigger other
+# workflows — so this job runs the same checks CI would (bats + version sync)
+# before opening it, and says so in the PR body.
+#
+# Run it immediately after a dev-loop release with:
+#   gh workflow run sync-dev-loop-pin.yml --repo choiyounggi/groundwork
+
+name: sync dev-loop pin
+
+on:
+  schedule:
+    - cron: "17 * * * *" # hourly, offset off the hour
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install bats + jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq
+
+      - name: Resolve dev-loop's latest release tag
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag=$(gh api repos/choiyounggi/dev-loop/releases/latest --jq .tag_name)
+          echo "dev-loop latest release: $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Move the pin
+        id: sync
+        env:
+          TAG: ${{ steps.latest.outputs.tag }}
+        run: |
+          set +e
+          out=$(bash scripts/sync-dev-loop-pin.sh "$TAG")
+          rc=$?
+          set -e
+          echo "$out"
+          case "$rc" in
+            0) echo "changed=false" >> "$GITHUB_OUTPUT" ;;
+            3) echo "changed=true"  >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::sync-dev-loop-pin.sh failed (exit $rc): $out"; exit 1 ;;
+          esac
+
+      # The PR will not get CI (GITHUB_TOKEN pushes do not trigger workflows),
+      # so run the same checks here and let the PR body carry the result.
+      - name: Verify the rewritten marketplace file
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          TAG: ${{ steps.latest.outputs.tag }}
+        run: |
+          set -euo pipefail
+          bats tests
+          bash scripts/check-versions.sh
+          # Idempotency: a second run against the same tag must be a clean no-op.
+          bash scripts/sync-dev-loop-pin.sh "$TAG"
+
+      - name: Open the pin-bump PR
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.latest.outputs.tag }}
+        run: |
+          set -euo pipefail
+          branch="chore/pin-dev-loop-${TAG}"
+
+          if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+            echo "an open PR for $branch already exists — nothing to do"
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git commit -aqm "feat(marketplace): bump dev-loop pin to release tag ${TAG}
+
+dev-loop's entry is tag-pinned, so ${TAG} does not reach installs until this
+pin moves. Opened automatically by .github/workflows/sync-dev-loop-pin.yml."
+          git push -q origin "$branch"
+
+          gh pr create \
+            --title "feat(marketplace): bump dev-loop pin to release tag ${TAG}" \
+            --body "dev-loop released [\`${TAG}\`](https://github.com/choiyounggi/dev-loop/releases/tag/${TAG}), and this repo's entry is tag-pinned — installs stay on the old version until \`source.ref\` and \`version\` move.
+
+Opened automatically by \`.github/workflows/sync-dev-loop-pin.yml\`.
+
+**Checks already run in the workflow** (a GITHUB_TOKEN PR does not trigger CI): \`bats tests\`, \`scripts/check-versions.sh\`, and an idempotency re-run of the sync script — all green.
+
+After merging: \`/plugin marketplace update groundwork\` then \`/plugin update dev-loop@groundwork\`."
