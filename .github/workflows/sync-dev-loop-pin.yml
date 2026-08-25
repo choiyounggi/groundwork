@@ -91,18 +91,23 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git commit -aqm "feat(marketplace): bump dev-loop pin to release tag ${TAG}
-
-dev-loop's entry is tag-pinned, so ${TAG} does not reach installs until this
-pin moves. Opened automatically by .github/workflows/sync-dev-loop-pin.yml."
+          git commit -q \
+            -m "feat(marketplace): bump dev-loop pin to release tag ${TAG}" \
+            -m "dev-loop's entry is tag-pinned, so ${TAG} does not reach installs until this pin moves. Opened automatically by .github/workflows/sync-dev-loop-pin.yml." \
+            -a
           git push -q origin "$branch"
+
+          # Every body line is written as its own printf so no line in this YAML
+          # block scalar starts at column 0 — a column-0 continuation silently
+          # ends the block and GitHub then registers the workflow with NO
+          # triggers (it shows up by filename instead of by name).
+          {
+            printf '%s\n\n' "dev-loop released [\`${TAG}\`](https://github.com/choiyounggi/dev-loop/releases/tag/${TAG}), and this repo's entry is tag-pinned — installs stay on the old version until \`source.ref\` and \`version\` move."
+            printf '%s\n\n' "Opened automatically by \`.github/workflows/sync-dev-loop-pin.yml\`."
+            printf '%s\n\n' "**Checks already run in the workflow** (a GITHUB_TOKEN PR does not trigger CI): \`bats tests\`, \`scripts/check-versions.sh\`, and an idempotency re-run of the sync script — all green."
+            printf '%s\n' "After merging: \`/plugin marketplace update groundwork\` then \`/plugin update dev-loop@groundwork\`."
+          } > "$RUNNER_TEMP/pr-body.md"
 
           gh pr create \
             --title "feat(marketplace): bump dev-loop pin to release tag ${TAG}" \
-            --body "dev-loop released [\`${TAG}\`](https://github.com/choiyounggi/dev-loop/releases/tag/${TAG}), and this repo's entry is tag-pinned — installs stay on the old version until \`source.ref\` and \`version\` move.
-
-Opened automatically by \`.github/workflows/sync-dev-loop-pin.yml\`.
-
-**Checks already run in the workflow** (a GITHUB_TOKEN PR does not trigger CI): \`bats tests\`, \`scripts/check-versions.sh\`, and an idempotency re-run of the sync script — all green.
-
-After merging: \`/plugin marketplace update groundwork\` then \`/plugin update dev-loop@groundwork\`."
+            --body-file "$RUNNER_TEMP/pr-body.md"
