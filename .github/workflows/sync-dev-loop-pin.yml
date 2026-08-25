@@ -8,9 +8,16 @@
 # main is protected by a ruleset (id 21371046) that forbids direct pushes for
 # everyone — no bypass actor, because a personal-account repo cannot grant one to
 # the GitHub Actions app. So this job goes through the same door a human does: it
-# pushes a branch, opens a PR and merges it. A GITHUB_TOKEN PR does not trigger
-# CI, so the checks that would have run on it (bats + version sync + an
-# idempotency re-run) run in this job first, and it merges only if they pass.
+# pushes a branch, opens a PR and merges it.
+#
+# Token: PIN_SYNC_TOKEN (a fine-grained PAT scoped to this repo, contents + pull
+# requests write) when the secret exists, else GITHUB_TOKEN. The difference is
+# not permission but CI: a branch pushed with GITHUB_TOKEN triggers no workflow
+# runs (GitHub's recursion guard), so its PR carries zero checks and cannot
+# satisfy a required-status-checks rule. Pushed with the PAT, the bot's PR gets
+# the same bats / shellcheck / version-sync runs a human PR gets. Either way this
+# job re-runs those checks itself before merging, so the gate never depends on
+# which token is in play.
 #
 # Run it immediately after a dev-loop release with:
 #   gh workflow run sync-dev-loop-pin.yml --repo choiyounggi/groundwork
@@ -36,6 +43,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Persisted as the push credential below — the PAT when present, so
+          # the bot's branch push actually triggers CI.
+          token: ${{ secrets.PIN_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Install bats + jq
         run: |
@@ -45,7 +56,7 @@ jobs:
       - name: Resolve dev-loop's latest release tag
         id: latest
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PIN_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           tag=$(gh api repos/choiyounggi/dev-loop/releases/latest --jq .tag_name)
@@ -85,7 +96,7 @@ jobs:
       - name: Open and merge the pin bump
         if: steps.sync.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PIN_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.latest.outputs.tag }}
         run: |
           set -euo pipefail
@@ -120,5 +131,9 @@ jobs:
             pr=$(gh pr list --head "$branch" --state open --json number --jq '.[].number' | head -1)
           fi
 
-          gh pr merge "$pr" --squash --delete-branch
-          echo "pinned dev-loop at ${TAG} on main via PR #${pr}"
+          # --auto lands it the moment required checks pass (and immediately when
+          # there are none); the plain merge is the fallback for a repo state
+          # where auto-merge is unavailable.
+          gh pr merge "$pr" --squash --delete-branch --auto \
+            || gh pr merge "$pr" --squash --delete-branch
+          echo "pinned dev-loop at ${TAG} via PR #${pr}"
