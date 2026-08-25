@@ -5,11 +5,12 @@
 # hand-done and got skipped (dev-loop v1.11.0 sat unreachable while `/plugin`
 # reported 1.10.0 as latest), so it runs on a schedule here instead.
 #
-# The bump is committed straight to main: it is two machine-generated lines that
-# are fully regenerable from the release tag, and a PR would gain nothing — a
-# GITHUB_TOKEN PR does not trigger CI, so there would be no checks on it to
-# review. This job instead runs the checks CI would run (bats + version sync +
-# an idempotency re-run) BEFORE pushing, and pushes only if they pass.
+# main is protected by a ruleset (id 21371046) that forbids direct pushes for
+# everyone — no bypass actor, because a personal-account repo cannot grant one to
+# the GitHub Actions app. So this job goes through the same door a human does: it
+# pushes a branch, opens a PR and merges it. A GITHUB_TOKEN PR does not trigger
+# CI, so the checks that would have run on it (bats + version sync + an
+# idempotency re-run) run in this job first, and it merges only if they pass.
 #
 # Run it immediately after a dev-loop release with:
 #   gh workflow run sync-dev-loop-pin.yml --repo choiyounggi/groundwork
@@ -26,7 +27,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # commits the pin bump to main; no PR is opened
+  contents: write # pushes the bump branch
+  pull-requests: write # opens and merges its own PR (main forbids direct pushes)
 
 jobs:
   sync:
@@ -80,23 +82,43 @@ jobs:
           # Idempotency: a second run against the same tag must be a clean no-op.
           bash scripts/sync-dev-loop-pin.sh "$TAG"
 
-      - name: Commit the pin to main
+      - name: Open and merge the pin bump
         if: steps.sync.outputs.changed == 'true'
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.latest.outputs.tag }}
         run: |
           set -euo pipefail
+          branch="chore/pin-dev-loop-${TAG}"
+
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
           git commit -q \
             -m "feat(marketplace): bump dev-loop pin to release tag ${TAG}" \
-            -m "dev-loop's entry is tag-pinned, so ${TAG} does not reach installs until this pin moves. Committed automatically by .github/workflows/sync-dev-loop-pin.yml." \
+            -m "dev-loop's entry is tag-pinned, so ${TAG} does not reach installs until this pin moves. Opened and merged automatically by .github/workflows/sync-dev-loop-pin.yml." \
             -a
-          # main may have moved since checkout (this runs hourly, and a human may
-          # be merging at the same moment) — rebase once and retry rather than
-          # leaving the release stranded until the next hour.
-          if ! git push -q origin HEAD:main; then
-            git pull -q --rebase origin main
-            git push -q origin HEAD:main
+          # The branch carries nothing but the regenerated two-line pin edit, so a
+          # stale one left by a failed run is overwritten rather than blocking.
+          git push -q --force origin "$branch"
+
+          pr=$(gh pr list --head "$branch" --state open --json number --jq '.[].number' | head -1)
+          if [ -z "$pr" ]; then
+            # Every body line is its own printf so no line in this YAML block
+            # scalar starts at column 0 — a column-0 continuation ends the block,
+            # and GitHub then registers the workflow with NO triggers.
+            {
+              printf '%s\n\n' "dev-loop released [\`${TAG}\`](https://github.com/choiyounggi/dev-loop/releases/tag/${TAG}); this repo's entry is tag-pinned, so installs stay on the old version until \`source.ref\` and \`version\` move."
+              printf '%s\n\n' "Opened and merged automatically by \`.github/workflows/sync-dev-loop-pin.yml\`."
+              printf '%s\n\n' "**Checks already run in the workflow** (a GITHUB_TOKEN PR does not trigger CI): \`bats tests\`, \`scripts/check-versions.sh\`, and an idempotency re-run of the sync script — all green."
+              printf '%s\n' "Installs pick it up on the next \`claude plugin marketplace update groundwork\` + \`claude plugin update dev-loop@groundwork\` (the local SessionStart hook runs this daily)."
+            } > "$RUNNER_TEMP/pr-body.md"
+            gh pr create \
+              --title "feat(marketplace): bump dev-loop pin to release tag ${TAG}" \
+              --body-file "$RUNNER_TEMP/pr-body.md" \
+              --head "$branch" --base main
+            pr=$(gh pr list --head "$branch" --state open --json number --jq '.[].number' | head -1)
           fi
-          echo "pinned dev-loop at ${TAG} on main"
+
+          gh pr merge "$pr" --squash --delete-branch
+          echo "pinned dev-loop at ${TAG} on main via PR #${pr}"

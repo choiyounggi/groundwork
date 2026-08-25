@@ -12,6 +12,12 @@
 #   2. it has a top-level `name`
 #   3. it has at least one trigger (`on:`)
 #   4. every `run:` script is valid bash (bash -n)
+#   5. it grants `contents: write` only if it is on the allowlist below
+#
+# Why (5): main is protected by a ruleset whose only bypass actor is the GitHub
+# Actions app, so ANY workflow holding contents write can commit straight to
+# main. Pinning that set here means a new write-capable workflow cannot appear
+# without an edit to this allowlist, in the same PR, where it is reviewable.
 #
 # Usage: check-workflows.sh [repo-root]   (repo-root defaults to ".")
 #
@@ -28,6 +34,12 @@ fi
 
 REPO_ROOT="${1:-.}"
 WORKFLOW_DIR="$REPO_ROOT/.github/workflows"
+
+# Workflows allowed to hold `contents: write`, and why each one needs it.
+#   auto-tag.yml          pushes the vX.Y.Z tag on a version bump
+#   release.yml           creates the GitHub Release for that tag
+#   sync-dev-loop-pin.yml commits the dev-loop pin bump to main
+WRITE_ALLOWLIST="auto-tag.yml release.yml sync-dev-loop-pin.yml"
 
 if [ ! -d "$WORKFLOW_DIR" ]; then
   echo "check-workflows: no workflow directory: $WORKFLOW_DIR" >&2
@@ -60,6 +72,18 @@ for wf in "$WORKFLOW_DIR"/*.yml "$WORKFLOW_DIR"/*.yaml; do
     triggers = doc.key?(true) ? doc[true] : doc["on"]
     abort "no triggers (on:)" if triggers.nil? || (triggers.respond_to?(:empty?) && triggers.empty?)
     Dir.mkdir(ARGV[1]) unless Dir.exist?(ARGV[1])
+    grants_write = lambda do |perms|
+      case perms
+      when String then perms == "write-all"
+      when Hash   then perms["contents"].to_s == "write"
+      else false
+      end
+    end
+    writes = grants_write.call(doc["permissions"])
+    (doc["jobs"] || {}).each_value do |job|
+      writes ||= grants_write.call(job["permissions"]) if job.is_a?(Hash)
+    end
+    File.write(File.join(ARGV[1], "GRANTS_CONTENTS_WRITE"), "1") if writes
     (doc["jobs"] || {}).each do |job_name, job|
       (job["steps"] || []).each_with_index do |step, i|
         next unless step.is_a?(Hash) && step["run"]
@@ -79,6 +103,19 @@ for wf in "$WORKFLOW_DIR"/*.yml "$WORKFLOW_DIR"/*.yaml; do
       status=1
     fi
   done
+
+  if [ -f "$SCRATCH/$(basename "$wf").d/GRANTS_CONTENTS_WRITE" ]; then
+    case " $WRITE_ALLOWLIST " in
+      *" $(basename "$wf") "*) : ;;
+      *)
+        echo "check-workflows: $(basename "$wf"): grants 'contents: write' but is not on WRITE_ALLOWLIST." >&2
+        echo "  Any workflow with contents write can commit straight to main (the branch" >&2
+        echo "  ruleset bypasses the GitHub Actions app). Add it to the allowlist in this" >&2
+        echo "  script, with the reason, if that is intended." >&2
+        status=1
+        ;;
+    esac
+  fi
 
   [ "$status" -eq 0 ] && echo "ok: $(basename "$wf")"
 done
