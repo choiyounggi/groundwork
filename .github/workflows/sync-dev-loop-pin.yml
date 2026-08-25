@@ -95,7 +95,10 @@ jobs:
             -m "feat(marketplace): bump dev-loop pin to release tag ${TAG}" \
             -m "dev-loop's entry is tag-pinned, so ${TAG} does not reach installs until this pin moves. Opened automatically by .github/workflows/sync-dev-loop-pin.yml." \
             -a
-          git push -q origin "$branch"
+          # The branch is fully regenerable from the tag, and a previous run may
+          # have left one behind (PR closed unmerged, or a failed later step), so
+          # overwrite rather than fail on a non-fast-forward.
+          git push -q --force origin "$branch"
 
           # Every body line is written as its own printf so no line in this YAML
           # block scalar starts at column 0 — a column-0 continuation silently
