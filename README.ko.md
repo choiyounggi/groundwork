@@ -28,7 +28,7 @@ AI 코딩 에이전트에게 셸을 쥐여주면 *언젠가는* 반드시 `rm -r
 | 플러그인 | 제공하는 것 |
 |--------|-------------------|
 | **guardrails** | 안전이 기본값인 Bash 가드 — 공급망 공격(`curl \| sh`), 디스크 파괴(`dd`/`mkfs`), 포크밤 명령은 **차단(block)** 하고, `rm -rf`, force-push, `DROP`/`TRUNCATE`, `kubectl delete`, 자격증명/`.env` 접근, 클라우드 자원 삭제, 시크릿 export 앞에서는 **확인(ask)** 합니다. 여기에 시크릿이 **마스킹된** 감사 로그까지. 모든 규칙은 설정 가능합니다. |
-| **[dev-loop](https://github.com/choiyounggi/dev-loop)** | 위키에 근거한 구현 루프 **그리고 멀티 세션 오케스트레이터**. 루프는 시맨틱 레이어 베스트프랙티스 위키에 대고 계획하고, 모든 태스크를 검증하며(TDD / PDCA / Reflexion), 실제로 배운 것으로 위키를 키워갑니다. 태스크 하나보다 큰 일이라면 `orchestrate`가 목표를 **의존 그래프**로 분해하고 각 태스크의 의존이 풀리는 순간 병렬 워커 세션을 스케줄합니다 — Orca가 설치돼 있으면 **Orca 네이티브**로(추적되는 Task/Dispatch, 이벤트 기반 `worker_done`/`ask`/`escalation` 메일, 네이티브 생존 감지), 없으면 순수 tmux로. 앞뒤로 사람의 승인 게이트 두 개가 붙습니다. |
+| **[dev-loop](https://github.com/choiyounggi/dev-loop)** | 위키에 근거한 구현 루프 **그리고 멀티 세션 오케스트레이터**. 루프는 **기계 판정 게이트가 붙은 3단계**(분석 → 설계 → 분해: 증거 기반 분석, 위키 라우팅된 결정을 fresh-context `plan-reviewer` 에이전트가 독립 리뷰)로 시맨틱 레이어 베스트프랙티스 위키에 대고 계획하고, 모든 태스크를 검증하며(TDD / PDCA / Reflexion), 실제로 배운 것으로 위키를 키워갑니다. 태스크 하나보다 큰 일이라면 `orchestrate`가 목표를 **의존 그래프**로 분해하고 각 태스크의 의존이 풀리는 순간 병렬 워커 세션을 스케줄합니다 — Orca가 설치돼 있으면 **Orca 네이티브**로(추적되는 Task/Dispatch, 이벤트 기반 `worker_done`/`ask`/`escalation` 메일, 네이티브 생존 감지), 없으면 순수 tmux로. 앞뒤로 사람의 승인 게이트 두 개가 붙습니다. |
 | **memory-loop** | 에이전트를 위한 메모리 라이프사이클 — 환각 메모리를 막는 저장 게이트, 삭제 대신 보관하는 계층형 만료, 주기적 학습 리뷰 넛지, 습관 증류 프레임(HABITS.md), 그리고 선택적인 1회성 이름 설정(어시스턴트가 자기 이름을 직접 고를 수도 있습니다). |
 
 ## 설치
@@ -131,7 +131,7 @@ groundwork는 갇힌 정원이 아니라, 확장해서 쓰는 작고 정직한 �
   자신만의 `extraAsk` / `extraBlock` 패턴을 추가해 팀과 커밋으로 공유합니다.
 - **dev-loop** — `/dev-loop:configure`로 capability role을 *당신의* 도구에 매핑하세요:
   `verify`는 테스트/빌드 명령에, `knowledge`는 자체 위키나 knowledge MCP에,
-  `explore`는 코드 검색에, `design`은 Figma에. 번들된 베스트프랙티스 위키는
+  `explore`는 코드 검색에, `design`은 Figma에, `research`는 웹 검색 도구에(미설정 시 brave-search MCP → 내장 WebSearch 폴백). 번들된 베스트프랙티스 위키는
   `knowledge-flush` → 리뷰되는 PR을 통해 **배운 것으로부터 자랍니다**.
 - **memory-loop** — 에이전트의 메모리와 습관은 직접 읽고 고칠 수 있는 평범한
   로컬 파일로 남습니다. 넛지 주기와 스윕 대상 디렉토리는
