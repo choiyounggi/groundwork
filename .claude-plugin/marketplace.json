@@ -17,7 +17,7 @@
       },
       "source": "./plugins/guardrails",
       "homepage": "https://github.com/choiyounggi/groundwork",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "tags": [
         "security",
         "guardrails",

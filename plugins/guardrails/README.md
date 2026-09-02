@@ -65,7 +65,7 @@ still stops the command. ([finding](../../docs/launch/yolo-finding.md))
 | `sensitive_file` | ask | reads/moves of `~/.ssh/id_*`, `~/.ssh/authorized_keys`, `~/.ssh/known_hosts`, `~/.aws/credentials`, `.netrc`, `.npmrc`, `.pgpass`, `.env` |
 | `cloud_delete` | ask | `aws … delete/terminate/rb/remove`, `gcloud … delete`, `az … delete` |
 | `secret_export` | ask | `export SOMETHING_TOKEN/SECRET/API_KEY/PASSWORD/ACCESS_KEY/PRIVATE_KEY…` |
-| `worktree_escape` | ask | a write (`rm`/`mv`/`cp`/`>`/…) into the **main** worktree from a linked worktree — a worker corrupting the shared checkout (best-effort). Declare sanctioned channels with `allowPaths` (below) |
+| `worktree_escape` | ask | a clause that both references the main worktree and carries a write verb/redirect (`rm`/`mv`/`cp`/`>`/…) — a worker corrupting the shared checkout (best-effort, clause-scoped). Declare sanctioned channels with `allowPaths` (below) |
 | `system_tmp_write` | **off** | any access to `/tmp`, `/private/tmp`, `$TMPDIR`, `/private/var/folders` (opt in for EDR-restricted environments) |
 
 `block` → the command is denied. `ask` → you get a confirmation prompt. Patterns

@@ -64,7 +64,7 @@ bash plugins/guardrails/scripts/self-test.sh
 | `sensitive_file` | ask | `~/.ssh/id_*`, `~/.ssh/authorized_keys`, `~/.ssh/known_hosts`, `~/.aws/credentials`, `.netrc`, `.npmrc`, `.pgpass`, `.env` 읽기/이동 |
 | `cloud_delete` | ask | `aws … delete/terminate/rb/remove`, `gcloud … delete`, `az … delete` |
 | `secret_export` | ask | `export SOMETHING_TOKEN/SECRET/API_KEY/PASSWORD/ACCESS_KEY/PRIVATE_KEY…` |
-| `worktree_escape` | ask | 링크된 워크트리에서 **메인** 워크트리로 쓰기(`rm`/`mv`/`cp`/`>`/…) — 워커가 공유 체크아웃을 오염 (best-effort). 정당한 채널은 아래 `allowPaths`로 선언합니다. |
+| `worktree_escape` | ask | 메인 워크트리를 참조하면서 동시에 쓰기 동사/리다이렉트(`rm`/`mv`/`cp`/`>`/…)를 포함하는 절(clause) — 워커가 공유 체크아웃을 오염 (best-effort, 절 단위 판정). 정당한 채널은 아래 `allowPaths`로 선언합니다. |
 | `system_tmp_write` | **off** | `/tmp`, `/private/tmp`, `$TMPDIR`, `/private/var/folders` 접근 전반 (EDR 제한 환경에서 옵트인) |
 
 `block` → 명령이 거부됩니다. `ask` → 확인 프롬프트가 뜹니다. 패턴은 명령어를

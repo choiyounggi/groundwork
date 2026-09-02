@@ -275,3 +275,51 @@ _wt_allow() { # $1 = JSON array body for rules.worktree_escape.allowPaths
   local wt="$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1"
   [ "$(decision "echo x > $rootp/.orchestration/status/t1.json" "$wt")" = "ask" ]
 }
+
+# ---- worktree_escape: clause scoping (groundwork#33) ----
+# The write-verb/redirect test must run against the SAME clause that carries
+# the surviving main-root reference, not against the whole $CMD — otherwise an
+# unrelated write verb elsewhere in the command falsely couples with an
+# in-worktree-only read/write of the main root.
+
+@test "worktree_escape: issue #33 case A (in-worktree write + main-root read, different clauses) does not fire" {
+  _wt_repo
+  local rootp; rootp=$(cd "$BATS_TEST_TMPDIR/wtrepo" && pwd -P)
+  local wt="$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1"
+  local cmd; cmd=$(printf 'mkdir -p %s/gates\ncat %s/f' "$wt" "$rootp")
+  [ "$(decision "$cmd" "$wt")" = "" ]
+}
+
+@test "worktree_escape: issue #33 case B (main-root read alone) does not fire" {
+  _wt_repo
+  local rootp; rootp=$(cd "$BATS_TEST_TMPDIR/wtrepo" && pwd -P)
+  local wt="$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1"
+  [ "$(decision "cat $rootp/f" "$wt")" = "" ]
+}
+
+@test "worktree_escape: issue #33 case C (main-root write) fires" {
+  _wt_repo
+  local rootp; rootp=$(cd "$BATS_TEST_TMPDIR/wtrepo" && pwd -P)
+  local wt="$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1"
+  [ "$(decision "rm $rootp/f" "$wt")" = "ask" ]
+}
+
+@test "worktree_escape: issue #33 case D (in-worktree write alone) does not fire" {
+  _wt_repo
+  local wt="$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1"
+  [ "$(decision "mkdir -p $wt/gates" "$wt")" = "" ]
+}
+
+@test "worktree_escape: issue #33 cross-clause true positive (write verb and main-root path share a clause via &&) fires" {
+  _wt_repo
+  local rootp; rootp=$(cd "$BATS_TEST_TMPDIR/wtrepo" && pwd -P)
+  local wt="$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1"
+  [ "$(decision "cd $wt && rm $rootp/f" "$wt")" = "ask" ]
+}
+
+@test "worktree_escape: issue #33 redirect true positive (main-root redirect) fires" {
+  _wt_repo
+  local rootp; rootp=$(cd "$BATS_TEST_TMPDIR/wtrepo" && pwd -P)
+  local wt="$BATS_TEST_TMPDIR/wtrepo/.worktrees/t1"
+  [ "$(decision "echo hi > $rootp/f" "$wt")" = "ask" ]
+}

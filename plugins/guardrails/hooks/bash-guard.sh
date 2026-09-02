@@ -141,6 +141,7 @@ fire() {
 
 match() { printf '%s' "$CMD" | grep -qE "$1"; }
 imatch() { printf '%s' "$CMD" | grep -qiE "$1"; }
+match_in() { printf '%s' "$1" | grep -qE "$2"; }
 
 # Command word at an execution position.
 PRE='(^|[[:space:];&|(])'
@@ -231,8 +232,11 @@ fi
 # worktree_escape — a write into the MAIN worktree from a LINKED worktree. An
 # orchestration worker should stay in its own worktree; writing into the shared
 # main checkout corrupts it. Best-effort and default `ask`: git is consulted only
-# when the command contains an absolute path, and the match is heuristic (an
-# absolute mention of the main root together with a write verb / redirect).
+# when the command contains an absolute path, and the match is heuristic (a
+# single clause that both mentions the main root and carries a write verb /
+# redirect). Clause-scoped so an unrelated write verb elsewhere in the command
+# does not couple with an in-worktree-only read/write of the main root
+# (groundwork#33) — split on newline/;/&&/||/|/& and test each clause alone.
 case "$CMD" in
   */*)
     wt_top=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
@@ -247,13 +251,14 @@ case "$CMD" in
       # its own paths also contain main_root. Strip references to this worktree
       # first, then a remaining main_root mention is a write OUTSIDE the worktree.
       if [ -n "$main_root" ] && [ "$main_root" != "$wt_top_p" ]; then
-        rest=${CMD//"$wt_top_p"/}
         # Sanctioned write paths inside the main root (rules.worktree_escape
-        # .allowPaths). Strip those references too, so a command whose ONLY
-        # main-root mention is a declared channel does not fire — while one that
-        # also touches the checkout still does. An orchestrator's shared state
-        # (status/escalation files) lives in the main worktree by design; without
-        # this, every coordination write reads as checkout corruption.
+        # .allowPaths), resolved to full patterns once — clause-invariant. A
+        # command whose ONLY main-root mention is a declared channel does not
+        # fire — while one that also touches the checkout still does. An
+        # orchestrator's shared state (status/escalation files) lives in the
+        # main worktree by design; without this, every coordination write
+        # reads as checkout corruption.
+        ap_pats=""
         while IFS= read -r ap; do
           [ -n "$ap" ] || continue
           case "$ap" in /*|*..*) continue ;; esac   # relative, no traversal
@@ -261,21 +266,37 @@ case "$CMD" in
           # Build the pattern in its own variable first. In `${v//"a/b"/}` bash
           # 3.2 takes the quoted `/` as the pattern/replacement delimiter, so the
           # inline form silently becomes "replace $main_root with $ap/".
-          ap_pat="$main_root/$ap"
-          rest=${rest//"$ap_pat"/}
+          ap_pats="${ap_pats}${main_root}/${ap}
+"
         done <<EOF
 $(rule_allow_paths worktree_escape)
 EOF
-        # require a path separator after main_root so a sibling like
-        # "<main_root>-backup/…" is not a false positive
-        case "$rest" in
-          *"$main_root"/*)
-            if match "(^|[[:space:];&|(])(rm|mv|cp|tee|mkdir|touch|install|dd)[[:space:]]" \
-               || match "(>|>>)[[:space:]]*[\"']?/"; then
-              fire worktree_escape ask "Writing into the main worktree (${main_root}) from a linked worktree — a worker can corrupt the shared checkout."
-            fi
-            ;;
-        esac
+        wt_escape_fired=0
+        while IFS= read -r clause; do
+          [ -n "$clause" ] || continue
+          rest_c=${clause//"$wt_top_p"/}
+          while IFS= read -r ap_pat; do
+            [ -n "$ap_pat" ] || continue
+            rest_c=${rest_c//"$ap_pat"/}
+          done <<EOF
+$ap_pats
+EOF
+          # require a path separator after main_root so a sibling like
+          # "<main_root>-backup/…" is not a false positive
+          case "$rest_c" in
+            *"$main_root"/*)
+              if match_in "$clause" "(^|[[:space:];&|(])(rm|mv|cp|tee|mkdir|touch|install|dd)[[:space:]]" \
+                 || match_in "$clause" "(>|>>)[[:space:]]*[\"']?/"; then
+                wt_escape_fired=1
+              fi
+              ;;
+          esac
+        done <<EOF
+$(printf '%s\n' "$CMD" | awk '{gsub(/&&|\|\||[;|&]/, "\n"); print}')
+EOF
+        if [ "$wt_escape_fired" = 1 ]; then
+          fire worktree_escape ask "Writing into the main worktree (${main_root}) from a linked worktree — a worker can corrupt the shared checkout."
+        fi
       fi
     fi
     ;;
