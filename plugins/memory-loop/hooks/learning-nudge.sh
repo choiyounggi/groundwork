@@ -20,6 +20,12 @@
 #                            Default ~/.claude/groundwork/HABITS.md
 #   "habitsCasesPath"      — its case-record file ("~" expanded).
 #                            Default: HABITS-CASES.md beside habitsPath.
+#   "habitsBudgetBytes"    — the habit file's size budget, shared with
+#                            habits-budget-guard.sh. Past it, the nudge asks for
+#                            consolidation INSTEAD of capture. 0 disables.
+#                            Default 8000.
+#   "habitsMaxRules"       — the habit file's rule-count cap, shared with the
+#                            same guard. 0 disables. Default 24.
 #
 # Design notes (why it looks like this):
 #   - stop_hook_active guard: when the Stop event is itself the product of a
@@ -98,16 +104,45 @@ Look back over the recent stretch of work for anything worth persisting:
   2. A reusable procedure or pattern                    -> consider extracting a skill
   3. A fact future sessions will need                   -> save a memory (memory-loop "remember" skill)
 Route every candidate through the save gate: confirm long/short tier with the user, and an expiry for short. Do not save unverified guesses.
-If there is nothing worth persisting, say "Learning review: nothing to persist." and finish.'
+A habit must clear all three gates before it is written: damage (is it a hard line?), recurrence (has it actually happened more than once?), generality (does it hold outside this one tool or repo?). A lesson that fails recurrence or generality belongs in the repo'"'"'s own CLAUDE.md or a wiki page, not in the always-loaded habit file.
+If there is nothing worth persisting, say "Learning review: nothing to persist." and finish. That is the expected answer most of the time.'
+
+# The habit file has a size/count budget that habits-budget-guard.sh enforces at
+# the write. The nudge reads the same two settings so that, once the file is
+# over budget, the periodic review asks for CONSOLIDATION rather than capture —
+# otherwise it would keep proposing additions the guard is about to deny.
+BUDGET=$(cfg_num habitsBudgetBytes 8000)
+MAX_RULES=$(cfg_num habitsMaxRules 24)
+HABITS_FILE=$(cfg_path habitsPath "${HOME}/.claude/groundwork/HABITS.md")
+BUDGET_NOTE=""
+if [ -f "$HABITS_FILE" ]; then
+  B_SZ=$(wc -c < "$HABITS_FILE" 2>/dev/null | tr -d ' ')
+  case "$B_SZ" in ''|*[!0-9]*) B_SZ=0 ;; esac
+  B_RULES=$(grep -c '^- \*\*' "$HABITS_FILE" 2>/dev/null | tr -d ' ')
+  case "$B_RULES" in ''|*[!0-9]*) B_RULES=0 ;; esac
+  OVER=""
+  if [ "$BUDGET" -gt 0 ] 2>/dev/null && [ "$B_SZ" -gt "$BUDGET" ]; then
+    OVER=$(printf '%s bytes against a %s-byte budget' "$B_SZ" "$BUDGET")
+  fi
+  if [ "$MAX_RULES" -gt 0 ] 2>/dev/null && [ "$B_RULES" -gt "$MAX_RULES" ]; then
+    if [ -n "$OVER" ]; then
+      OVER=$(printf '%s, and %s rules against a cap of %s' "$OVER" "$B_RULES" "$MAX_RULES")
+    else
+      OVER=$(printf '%s rules against a cap of %s' "$B_RULES" "$MAX_RULES")
+    fi
+  fi
+  if [ -n "$OVER" ]; then
+    BUDGET_NOTE=$(printf '\n\nOVER BUDGET: %s is at %s. Consolidate before you capture — the write guard will deny any edit that grows it. Merge rules with overlapping triggers, and move the ones that fail the recurrence or generality gate to HABITS-ARCHIVE.md beside it. If this stretch of work produced a habit worth keeping, name the existing rule it replaces.' "$(basename "$HABITS_FILE")" "$OVER")
+  fi
+fi
 
 # HABITS.md is imported into every session, so it is re-read on every request —
 # its size is paid per turn, not once. Background prose is what makes it grow,
 # so past a threshold the nudge also asks for that prose to move out.
 SPLIT_WARN=$(cfg_num habitsSplitWarnBytes 40000)
-# The habit file is not always at the default path — some users import their own
-# (a differently named file, a different directory). Reading a fixed path would
-# make this check silently absent for exactly the people whose file grew large.
-HABITS_FILE=$(cfg_path habitsPath "${HOME}/.claude/groundwork/HABITS.md")
+# HABITS_FILE is resolved above (the habit file is not always at the default
+# path — some users import their own). Reading a fixed path would make this
+# check silently absent for exactly the people whose file grew large.
 CASES_FILE=$(cfg_path habitsCasesPath "$(dirname "$HABITS_FILE")/HABITS-CASES.md")
 SPLIT_NOTE=""
 if [ "$SPLIT_WARN" -gt 0 ] 2>/dev/null && [ -f "$HABITS_FILE" ]; then
@@ -128,5 +163,5 @@ if [ "$SPLIT_WARN" -gt 0 ] 2>/dev/null && [ -f "$HABITS_FILE" ]; then
   fi
 fi
 
-jq -cn --arg r "${REASON}${SPLIT_NOTE}" '{decision: "block", reason: $r}'
+jq -cn --arg r "${REASON}${BUDGET_NOTE}${SPLIT_NOTE}" '{decision: "block", reason: $r}'
 exit 0
