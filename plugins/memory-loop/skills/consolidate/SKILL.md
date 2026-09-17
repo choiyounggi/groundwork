@@ -24,6 +24,9 @@ It is a manual skill — there is no forced trigger. Run it when:
 - A big piece of work finished and left several related memories behind.
 - The learning-nudge hook reported HABITS.md over budget, or a write to it was
   denied by `habits-budget-guard.sh`.
+- The SessionStart upkeep check (`memory-staleness-check.sh`) listed
+  re-verification candidates, index drift, orphans or broken index links — it
+  is the closest thing this skill has to a trigger, and it only ever reports.
 
 ## Scope — what it may touch
 
@@ -52,6 +55,36 @@ Review each memory or group through five lenses (the consolidation prompt):
    memory. **Discard means move to `archived/`, not delete** — nothing is lost.
 5. **Preserve** — keep decisions and their rationale, architecture, preferences,
    and problem/solution pairs.
+
+## The index pass
+
+The index is a separate artifact from the memories it points at, so it drifts
+on its own. All four checks are mechanical:
+
+- **Broken links** — an index line naming a file that is not there.
+- **Orphans** — a memory file no line points at; it is invisible to recall.
+- **Drift** — a file newer than `MEMORY.md`: its one-line summary may describe
+  a version of the body that no longer exists. Re-read the body and rewrite the
+  line from it, never from the old summary.
+- **Size** — past `memoryIndexMaxLines` (default 120) the index is itself the
+  thing to consolidate.
+
+## The staleness pass
+
+Age is not wrongness. A memory past `memoryReviewDays` is a **candidate for
+re-verification**, never a candidate for deletion:
+
+1. Re-verify it the way it was verified originally — run the command, read the
+   source. "It still sounds right" is not verification.
+2. Still true → set `reviewed: <today>` and change nothing else. That is the
+   whole repair, and it is what stops the same file being reported forever.
+3. Partly wrong → correct it, set `modified: <today>`, and fix its index line.
+4. Wholly superseded → archive it (never delete) and remove the index line.
+
+Two buckets the check reports are **out of scope here** (see the exclusion
+table above) — route both through `remember`: untiered files, and `tier: short`
+memories whose expiry is conditional or missing, which no sweep will ever
+archive and which are retired by their event, not by their age.
 
 ## The habit pass
 
@@ -109,6 +142,16 @@ prohibition leaves this file only when it is promoted to a hook that enforces it
    Preserve every frontmatter key (`tier`, `salience`, `expires`, …) on the
    surviving file.
 6. **Report** what changed: N actions applied, index N → N lines.
+7. **Record the run** so the upkeep check stops asking:
+
+   ```bash
+   mkdir -p ~/.claude/groundwork/memory-loop
+   date +%Y-%m-%d > ~/.claude/groundwork/memory-loop/last-consolidate
+   ```
+
+   Write it after step 5 applied something, or after an honest "nothing to
+   consolidate" in step 3 — never as a way to silence the check without
+   looking.
 
 ## Safety contract
 
@@ -117,3 +160,6 @@ prohibition leaves this file only when it is promoted to a hook that enforces it
 - Never bulk-add `tier` to untiered files here; that is the `remember` gate's job.
 - An unverified inference is not consolidated — the same rule the save gate
   applies at the entrance, applied again when reorganizing.
+- Age alone never justifies removing a memory. If you cannot re-verify it now,
+  leave it and say so — an unverified old memory is a known risk, while a
+  deleted one is a silent gap.

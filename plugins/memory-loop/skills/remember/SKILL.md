@@ -48,12 +48,44 @@ entrance.
 Optional: `salience: 1-5` (recall priority) may be added under `metadata`;
 memory-loop does not enforce it — it is a hint for your own recall ordering.
 
+## Keeping the dates honest
+
+Two `metadata` dates drive the upkeep check, and both are cheap:
+
+- `modified: YYYY-MM-DD` — set it whenever you change a memory's **content**.
+  Editing the body while leaving this stale is what makes an index line and a
+  file disagree without anything noticing.
+- `reviewed: YYYY-MM-DD` — set it when you **re-verified** a memory and it was
+  still true, with nothing to change. Without this there is no way to say "I
+  checked, it holds", so the same file is flagged forever and the check trains
+  you to ignore it.
+
+Re-verification means you ran the command or read the source again — not that
+the memory still sounds plausible.
+
 ## Compatibility contract
 
 Files without a `tier` key are **outside the lifecycle** — the sweep never
 touches them. That is the safe default for every memory that existed before
 this plugin was installed. Never bulk-add `tier` to old files; tier them one
 by one, through this gate, as they come up.
+
+## When the upkeep check reports
+
+The SessionStart upkeep check names memories untouched past
+`memoryReviewDays`, index drift, orphans and broken index links. It never
+writes. Offer `/memory-loop:consolidate` for anything it lists — except:
+
+- **Untiered files.** Consolidation may not touch them (the compatibility
+  contract above). Re-verify the fact yourself, then bring it through this gate
+  as a tiered memory, or leave it exactly as it is.
+- **`tier: short` with a conditional or missing expiry.** Nothing archives
+  these — the sweep only acts on an absolute `expires:`. The question is not
+  "is it old" but "did the event already happen": if it did, archive it; if it
+  did not, leave it and set `reviewed:`; if it never will, convert it to
+  `tier: long` or give it an absolute date, through this gate.
+- **A memory that is simply old.** Age is not wrongness. If it still holds,
+  the whole repair is one `reviewed:` line.
 
 ## When the sweep reports
 

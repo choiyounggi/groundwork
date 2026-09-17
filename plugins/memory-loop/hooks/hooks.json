@@ -1,5 +1,5 @@
 {
-  "description": "memory-loop hooks — identity context injection + memory expiry sweep (SessionStart), a budget guard on the always-loaded habit file (PreToolUse), and a periodic learning-review nudge (Stop).",
+  "description": "memory-loop hooks — identity context, memory expiry sweep and a memory-upkeep check (SessionStart), a budget guard on the always-loaded habit file (PreToolUse), and a periodic learning-review nudge (Stop).",
   "hooks": {
     "SessionStart": [
       {
@@ -11,6 +11,10 @@
           {
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/memory-expiry-sweep.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/memory-staleness-check.sh"
           },
           {
             "type": "command",
