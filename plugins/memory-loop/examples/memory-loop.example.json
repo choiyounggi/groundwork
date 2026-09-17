@@ -3,6 +3,10 @@
   "nudgeInterval": 10,
   "habitsBudgetBytes": 8000,
   "habitsMaxRules": 24,
+  "memoryReviewDays": 90,
+  "memoryIndexMaxLines": 120,
+  "consolidateIntervalDays": 30,
+  "memoryCheckCooldownDays": 7,
   "extraMemoryDirs": [
     "~/my-notes/memory"
   ]

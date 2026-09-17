@@ -80,6 +80,7 @@ the other grows a continuous, self-correcting agent.
 | Hook | Event | What it does |
 |------|-------|--------------|
 | `identity-context.sh` | SessionStart | Injects "The user's name is X. Your name is Y." — or offers a one-time name setup when unconfigured; silent forever after a decline |
+| `memory-staleness-check.sh` | SessionStart | Reports what a consolidation pass would look at — memories past their review window, index drift, orphans, broken index links, an oversized index, an overdue consolidate run — then goes quiet for a cooldown. Reports only; never writes |
 | `memory-expiry-sweep.sh` | SessionStart | Moves lapsed `tier: short` memories into `archived/` (never deletes) and reports, so the agent tidies the index and offers promotions |
 | `habits-budget-guard.sh` | PreToolUse (Edit\|Write) | Denies a write that grows the habit file past its byte/rule budget; a write that shrinks it is always allowed, so the way out is never blocked |
 | `learning-nudge.sh` | Stop | Every N responses, reminds the agent to check the recent work for habits, skills, and memories worth persisting — each routed through the save gate and the three capture gates. Over budget, it asks for consolidation instead of capture |
@@ -92,7 +93,7 @@ the other grows a continuous, self-correcting agent.
 | `setup` *(slash-command only)* | First-time walkthrough: identity → HABITS.md + HABITS-CASES.md → config → verify |
 | `identity` | Set, change, or decline the user/assistant names |
 | `remember` | The save gate: evidence check → tier confirm → expiry confirm → write |
-| `consolidate` | Periodically merge long-tier memory **and the habit file** — dedupe, resolve contradictions to the current truth, absolutize dates, bring HABITS.md back under budget — proposed for your confirmation before any write; discards to `archived/` (memories) or `HABITS-ARCHIVE.md` (rules), never deletes |
+| `consolidate` | Merge long-tier memory **and the habit file**, with an index pass (drift/orphans/broken links) and a staleness pass (re-verify, don't delete) — dedupe, resolve contradictions to the current truth, absolutize dates, bring HABITS.md back under budget — proposed for your confirmation before any write; discards to `archived/` (memories) or `HABITS-ARCHIVE.md` (rules), never deletes |
 | `habit` | Distill a lesson into HABITS.md (🟢 practice / 🛑 hard line) after the damage/recurrence/generality gate, with its background filed in `HABITS-CASES.md` behind a `[Cnn]` pointer; merge over multiply, route what fails a gate to a repo CLAUDE.md or the wiki, escalate to hooks/skills when warranted |
 | `tutor` | Spaced-repetition self-quiz over lessons already in HABITS.md — one novel transfer question per due item, anti-sycophancy grading, and a 1-4 recall rating |
 
@@ -143,6 +144,10 @@ global overrides built-in defaults.
 | `habitsSplitWarnBytes` | `40000` | Past this size, the nudge also asks for the habit file's background prose to move into the cases file (`0` disables) |
 | `habitsPath` | `~/.claude/groundwork/HABITS.md` | The habit file the budget guard and size checks read — set this if you import your own file from elsewhere (`~` supported) |
 | `habitsCasesPath` | `HABITS-CASES.md` beside `habitsPath` | Where its case records live (`~` supported) |
+| `memoryReviewDays` | `90` | A memory untouched for this long becomes a re-verification candidate (`0` disables) |
+| `memoryIndexMaxLines` | `120` | `MEMORY.md` line count that calls for a consolidation pass (`0` disables) |
+| `consolidateIntervalDays` | `30` | Report when the last recorded consolidate run is older than this (`0` disables) |
+| `memoryCheckCooldownDays` | `7` | Stay silent for this long after an upkeep report (`0` reports every session) |
 | `extraMemoryDirs` | `[]` | Additional memory directories to sweep, beyond the current project's own (`~` supported) |
 
 State (identity, nudge counter) lives in `~/.claude/groundwork/memory-loop/`.

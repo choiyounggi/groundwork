@@ -79,6 +79,7 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 | 훅 | 이벤트 | 하는 일 |
 |------|-------|--------------|
 | `identity-context.sh` | SessionStart | "The user's name is X. Your name is Y." 주입 — 미설정이면 1회성 이름 설정 제안, 거절 후엔 영원히 침묵 |
+| `memory-staleness-check.sh` | SessionStart | 정리 패스가 들여다볼 대상을 보고 — 리뷰 주기를 넘긴 메모리, 인덱스 드리프트, 고아 파일, 깨진 인덱스 링크, 비대해진 인덱스, 밀린 consolidate 실행 — 이후 쿨다운 동안 침묵. 보고만 하고 쓰지 않음 |
 | `memory-expiry-sweep.sh` | SessionStart | 만료된 `tier: short` 메모리를 `archived/`로 이동(삭제 아님)하고 리포트 — 에이전트가 인덱스를 정리하고 승격을 제안하게 함 |
 | `habits-budget-guard.sh` | PreToolUse (Edit\|Write) | 습관 파일을 예산(바이트/규칙 수) 너머로 키우는 쓰기를 거부 — 파일을 줄이는 쓰기는 항상 허용하므로 빠져나갈 길은 막지 않음 |
 | `learning-nudge.sh` | Stop | N회 응답마다, 최근 작업에서 남길 가치가 있는 습관·스킬·메모리를 점검하도록 리마인드 — 각 후보는 저장 게이트와 세 개의 캡처 게이트를 거침. 예산 초과 상태에서는 캡처 대신 정리를 요구 |
@@ -141,6 +142,10 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 | `habitsSplitWarnBytes` | `40000` | 습관 파일이 이 크기를 넘으면 넛지가 배경 산문을 사례 파일로 옮기도록 함께 안내 (`0`이면 비활성) |
 | `habitsPath` | `~/.claude/groundwork/HABITS.md` | 예산 가드와 크기 검사가 읽을 습관 파일 — 다른 경로의 파일을 import해서 쓰면 이 값을 지정 (`~` 지원) |
 | `habitsCasesPath` | `habitsPath` 옆의 `HABITS-CASES.md` | 그 사례 기록 파일의 경로 (`~` 지원) |
+| `memoryReviewDays` | `90` | 이 기간 동안 손대지 않은 메모리는 재검증 후보가 됨 (`0`이면 비활성) |
+| `memoryIndexMaxLines` | `120` | 정리 패스를 권할 `MEMORY.md` 줄 수 (`0`이면 비활성) |
+| `consolidateIntervalDays` | `30` | 마지막 consolidate 실행이 이보다 오래됐으면 보고 (`0`이면 비활성) |
+| `memoryCheckCooldownDays` | `7` | 업킵 보고 후 이 기간 동안 침묵 (`0`이면 매 세션 보고) |
 | `extraMemoryDirs` | `[]` | 현재 프로젝트의 메모리 디렉토리 외에 추가로 스윕할 디렉토리 (`~` 지원) |
 
 상태(identity, 넛지 카운터)는 `~/.claude/groundwork/memory-loop/`에 있습니다.
