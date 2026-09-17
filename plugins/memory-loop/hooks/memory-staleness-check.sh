@@ -251,7 +251,7 @@ printf 'memory upkeep — the consolidate pass has no automatic trigger, so here
 [ -n "$orphan" ] && printf '  - memory files missing from the index: %s\n' "$orphan"
 [ -n "$index_lines_over" ] && printf '  - MEMORY.md is %s lines\n' "$index_lines_over"
 [ -n "$overdue" ] && printf '  - consolidate: %s\n' "$overdue"
-printf 'Do not act on this automatically. Offer /memory-loop:consolidate; it proposes and writes only on confirmation. Re-verifying a memory that is still true costs one line: set `reviewed: %s` in its frontmatter.\n' "$TODAY"
+printf 'Do not act on this automatically. Offer /memory-loop:consolidate; it proposes and writes only on confirmation. Re-verifying a memory that is still true costs one line: set reviewed: %s in its frontmatter.\n' "$TODAY"
 
 mkdir -p "$STATE_DIR" 2>/dev/null || true
 printf '%s' "$TODAY" > "$LAST_REPORT_FILE" 2>/dev/null || true
