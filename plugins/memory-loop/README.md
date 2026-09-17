@@ -19,10 +19,12 @@ learning nudge      save gate +            expiry sweep →
 Plus two things a lifecycle makes possible:
 
 - **HABITS.md** — a distillation frame that turns corrections and incidents
-  into standing behavior (positive practices 🟢, hard lines 🛑). It is two
-  files: the rules load every session, while their case records live in
-  `HABITS-CASES.md` and are read on demand via `[Cnn]` pointers — an
-  always-loaded file is re-read on every request, so it has to stay small.
+  into standing behavior (positive practices 🟢, hard lines 🛑). Capture is
+  gated three ways (damage → 🛑/🟢, recurrence, generality) and the file is
+  **budgeted**: 8000 bytes / 24 rules, enforced at the write by a PreToolUse
+  guard, because an always-loaded file is re-read on every request. Case
+  records live in `HABITS-CASES.md` and retired rules in `HABITS-ARCHIVE.md`,
+  neither loaded, reached via `[Cnn]` pointers.
 - **Identity** — a one-time, declinable offer to set names for the user *and*
   the assistant (the assistant may pick its own name), injected as context
   every session. Continuity you can address by name.
@@ -79,7 +81,8 @@ the other grows a continuous, self-correcting agent.
 |------|-------|--------------|
 | `identity-context.sh` | SessionStart | Injects "The user's name is X. Your name is Y." — or offers a one-time name setup when unconfigured; silent forever after a decline |
 | `memory-expiry-sweep.sh` | SessionStart | Moves lapsed `tier: short` memories into `archived/` (never deletes) and reports, so the agent tidies the index and offers promotions |
-| `learning-nudge.sh` | Stop | Every N responses, reminds the agent to check the recent work for habits, skills, and memories worth persisting — each routed through the save gate |
+| `habits-budget-guard.sh` | PreToolUse (Edit\|Write) | Denies a write that grows the habit file past its byte/rule budget; a write that shrinks it is always allowed, so the way out is never blocked |
+| `learning-nudge.sh` | Stop | Every N responses, reminds the agent to check the recent work for habits, skills, and memories worth persisting — each routed through the save gate and the three capture gates. Over budget, it asks for consolidation instead of capture |
 | `tutor-due-check.sh` | SessionStart | One quiet reminder line when tutor items are due, silent otherwise |
 
 ## Skills
@@ -89,8 +92,8 @@ the other grows a continuous, self-correcting agent.
 | `setup` *(slash-command only)* | First-time walkthrough: identity → HABITS.md + HABITS-CASES.md → config → verify |
 | `identity` | Set, change, or decline the user/assistant names |
 | `remember` | The save gate: evidence check → tier confirm → expiry confirm → write |
-| `consolidate` | Periodically merge long-tier memory — dedupe, resolve contradictions to the current truth, absolutize dates — proposed for your confirmation before any write; discards to `archived/`, never deletes |
-| `habit` | Distill a lesson into HABITS.md (🟢 practice / 🛑 hard line) with its background filed in `HABITS-CASES.md` behind a `[Cnn]` pointer, merge over multiply, escalate to hooks/skills when warranted |
+| `consolidate` | Periodically merge long-tier memory **and the habit file** — dedupe, resolve contradictions to the current truth, absolutize dates, bring HABITS.md back under budget — proposed for your confirmation before any write; discards to `archived/` (memories) or `HABITS-ARCHIVE.md` (rules), never deletes |
+| `habit` | Distill a lesson into HABITS.md (🟢 practice / 🛑 hard line) after the damage/recurrence/generality gate, with its background filed in `HABITS-CASES.md` behind a `[Cnn]` pointer; merge over multiply, route what fails a gate to a repo CLAUDE.md or the wiki, escalate to hooks/skills when warranted |
 | `tutor` | Spaced-repetition self-quiz over lessons already in HABITS.md — one novel transfer question per due item, anti-sycophancy grading, and a 1-4 recall rating |
 
 ## Tutor
@@ -135,8 +138,10 @@ global overrides built-in defaults.
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `nudgeInterval` | `10` | Fire the learning-review nudge every N responses |
+| `habitsBudgetBytes` | `8000` | Size budget for the always-loaded habit file. A write past it is denied, and the nudge switches from capture to consolidation (`0` disables) |
+| `habitsMaxRules` | `24` | Rule-count cap for the habit file, 🟢 and 🛑 counted together (`0` disables) |
 | `habitsSplitWarnBytes` | `40000` | Past this size, the nudge also asks for the habit file's background prose to move into the cases file (`0` disables) |
-| `habitsPath` | `~/.claude/groundwork/HABITS.md` | The habit file the size check reads — set this if you import your own file from elsewhere (`~` supported) |
+| `habitsPath` | `~/.claude/groundwork/HABITS.md` | The habit file the budget guard and size checks read — set this if you import your own file from elsewhere (`~` supported) |
 | `habitsCasesPath` | `HABITS-CASES.md` beside `habitsPath` | Where its case records live (`~` supported) |
 | `extraMemoryDirs` | `[]` | Additional memory directories to sweep, beyond the current project's own (`~` supported) |
 

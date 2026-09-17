@@ -19,9 +19,12 @@ Claude Code는 이미 메모리를 *저장*할 수 있습니다. 없는 것은 �
 그리고 라이프사이클이 있어야 가능해지는 두 가지:
 
 - **HABITS.md** — 교정과 사고를 상시 행동으로 바꾸는 증류 프레임 (긍정 프랙티스 🟢,
-  하드 라인 🛑). 두 파일로 나뉩니다 — 규칙은 매 세션 로드되고, 그 규칙이 나온 사례
-  기록은 `HABITS-CASES.md`에 두어 `[Cnn]` 포인터로 필요할 때만 읽습니다. 항상
-  로드되는 파일은 매 요청마다 다시 읽히므로 작게 유지해야 합니다.
+  하드 라인 🛑). 기록 전 세 개의 게이트(damage → 🛑/🟢, recurrence, generality)를
+  통과해야 하고, 파일 자체에 **예산**이 걸려 있습니다 — 8000바이트 / 규칙 24개를
+  PreToolUse 가드가 쓰기 시점에 강제합니다. 항상 로드되는 파일은 매 요청마다 다시
+  읽히기 때문입니다. 사례 기록은 `HABITS-CASES.md`, 은퇴한 규칙은
+  `HABITS-ARCHIVE.md`에 두고 둘 다 로드하지 않으며 `[Cnn]` 포인터로 필요할 때만
+  읽습니다.
 - **Identity** — 사용자와 어시스턴트 *양쪽의* 이름을 정하는 1회성·거절 가능한
   제안 (어시스턴트가 자기 이름을 직접 고를 수도 있습니다). 매 세션 컨텍스트로
   주입됩니다. 이름으로 부를 수 있는 연속성.
@@ -77,7 +80,8 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 |------|-------|--------------|
 | `identity-context.sh` | SessionStart | "The user's name is X. Your name is Y." 주입 — 미설정이면 1회성 이름 설정 제안, 거절 후엔 영원히 침묵 |
 | `memory-expiry-sweep.sh` | SessionStart | 만료된 `tier: short` 메모리를 `archived/`로 이동(삭제 아님)하고 리포트 — 에이전트가 인덱스를 정리하고 승격을 제안하게 함 |
-| `learning-nudge.sh` | Stop | N회 응답마다, 최근 작업에서 남길 가치가 있는 습관·스킬·메모리를 점검하도록 리마인드 — 각 후보는 저장 게이트를 거침 |
+| `habits-budget-guard.sh` | PreToolUse (Edit\|Write) | 습관 파일을 예산(바이트/규칙 수) 너머로 키우는 쓰기를 거부 — 파일을 줄이는 쓰기는 항상 허용하므로 빠져나갈 길은 막지 않음 |
+| `learning-nudge.sh` | Stop | N회 응답마다, 최근 작업에서 남길 가치가 있는 습관·스킬·메모리를 점검하도록 리마인드 — 각 후보는 저장 게이트와 세 개의 캡처 게이트를 거침. 예산 초과 상태에서는 캡처 대신 정리를 요구 |
 | `tutor-due-check.sh` | SessionStart | 튜터 복습 항목이 대기 중일 때 조용한 리마인드 한 줄, 아니면 침묵 |
 
 ## 스킬
@@ -87,8 +91,8 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 | `setup` *(슬래시 커맨드 전용)* | 최초 세팅 안내: identity → HABITS.md + HABITS-CASES.md → 설정 → 검증 |
 | `identity` | 사용자/어시스턴트 이름 설정·변경·거절 |
 | `remember` | 저장 게이트: 근거 확인 → tier 확인 → 만료 확인 → 기록 |
-| `consolidate` | long-tier 메모리를 주기적으로 통합 — 중복 병합·모순은 최신 진실로 해소·날짜 절대화 — 쓰기 전 확인을 거치고, `archived/`로 보내며 삭제는 하지 않음 |
-| `habit` | 교훈을 HABITS.md로 증류 (🟢 프랙티스 / 🛑 하드 라인) — 배경은 `HABITS-CASES.md`에 두고 `[Cnn]` 포인터만 남김, 증식 대신 병합, 필요 시 훅/스킬로 승격 |
+| `consolidate` | long-tier 메모리 **와 습관 파일**을 주기적으로 통합 — 중복 병합·모순은 최신 진실로 해소·날짜 절대화·HABITS.md를 예산 이내로 복귀 — 쓰기 전 확인을 거치고, `archived/`(메모리) 또는 `HABITS-ARCHIVE.md`(규칙)로 보내며 삭제는 하지 않음 |
+| `habit` | damage/recurrence/generality 게이트를 통과한 교훈만 HABITS.md로 증류 (🟢 프랙티스 / 🛑 하드 라인) — 배경은 `HABITS-CASES.md`에 두고 `[Cnn]` 포인터만 남김, 증식 대신 병합, 게이트에 걸린 후보는 레포 CLAUDE.md나 위키로 라우팅, 필요 시 훅/스킬로 승격 |
 | `tutor` | HABITS.md에 이미 쌓인 교훈을 대상으로 한 간격 반복 자가 퀴즈 — 복습 항목마다 새로운 전이 질문 하나, anti-sycophancy 채점, 1-4 회상 평점 |
 
 ## 튜터 (tutor)
@@ -132,8 +136,10 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 | 키 | 기본값 | 의미 |
 |-----|---------|---------|
 | `nudgeInterval` | `10` | 학습 리뷰 넛지를 N회 응답마다 발화 |
+| `habitsBudgetBytes` | `8000` | 항상 로드되는 습관 파일의 크기 예산. 이를 넘기는 쓰기는 거부되고, 넛지는 캡처 대신 정리를 요구 (`0`이면 비활성) |
+| `habitsMaxRules` | `24` | 습관 파일의 규칙 수 상한 — 🟢과 🛑을 합쳐서 셈 (`0`이면 비활성) |
 | `habitsSplitWarnBytes` | `40000` | 습관 파일이 이 크기를 넘으면 넛지가 배경 산문을 사례 파일로 옮기도록 함께 안내 (`0`이면 비활성) |
-| `habitsPath` | `~/.claude/groundwork/HABITS.md` | 크기 검사가 읽을 습관 파일 — 다른 경로의 파일을 import해서 쓰면 이 값을 지정 (`~` 지원) |
+| `habitsPath` | `~/.claude/groundwork/HABITS.md` | 예산 가드와 크기 검사가 읽을 습관 파일 — 다른 경로의 파일을 import해서 쓰면 이 값을 지정 (`~` 지원) |
 | `habitsCasesPath` | `habitsPath` 옆의 `HABITS-CASES.md` | 그 사례 기록 파일의 경로 (`~` 지원) |
 | `extraMemoryDirs` | `[]` | 현재 프로젝트의 메모리 디렉토리 외에 추가로 스윕할 디렉토리 (`~` 지원) |
 

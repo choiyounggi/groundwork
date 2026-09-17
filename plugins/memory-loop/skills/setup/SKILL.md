@@ -20,9 +20,15 @@ The habit-distillation frame is two files — rules that load every session, and
 the case records they point to, which do not:
 
 ```
-~/.claude/groundwork/HABITS.md         (imported into every session)
+~/.claude/groundwork/HABITS.md         (imported into every session — budgeted)
 ~/.claude/groundwork/HABITS-CASES.md   (on demand, via [Cnn] pointers)
+~/.claude/groundwork/HABITS-ARCHIVE.md (retired rules; created when first needed)
 ```
+
+The habit file carries a budget — 8000 bytes / 24 rules by default — that
+`habits-budget-guard.sh` enforces at the write. Mention it when you show the
+file: the cap is what keeps an always-loaded file affordable, and the `habit`
+skill explains how to make room.
 
 - If they do not exist, copy the templates:
   ```bash
@@ -42,8 +48,13 @@ the case records they point to, which do not:
   @groundwork/HABITS.md
   ```
   (The path is relative to `~/.claude/`. Never edit the user's CLAUDE.md
-  yourself.) Import **only** HABITS.md — HABITS-CASES.md is deliberately left
-  out so its prose is not re-read on every request.
+  yourself.) Import **only** HABITS.md — HABITS-CASES.md and HABITS-ARCHIVE.md
+  are deliberately left out so their prose is not re-read on every request.
+
+  An unimported habit file is the quiet failure mode of this whole loop: it
+  still collects rules, and none of them ever reach a session. If the user
+  declines the import, say plainly that capture will keep running with no
+  effect, and offer to skip habit capture entirely instead.
 
 ## 3. Config
 
@@ -53,11 +64,19 @@ Offer to copy the example config to the global location:
 cp "${CLAUDE_PLUGIN_ROOT}/examples/memory-loop.example.json" ~/.claude/groundwork/memory-loop.json
 ```
 
-Explain the two keys before copying:
+Explain the four keys before copying:
 - `nudgeInterval` — the learning-review nudge fires every N responses
   (default 10; raise it for less frequent reviews).
+- `habitsBudgetBytes` — size budget for the always-loaded habit file (default
+  8000). A write past it is denied; `0` disables the check.
+- `habitsMaxRules` — rule-count cap for that file, 🟢 and 🛑 together (default
+  24). This is the one that usually binds; `0` disables it.
 - `extraMemoryDirs` — additional memory directories the expiry sweep should
   cover, beyond the current project's own memory directory.
+
+The example's budget values match the hooks' built-in defaults, so copying it
+changes nothing until the user edits them — say so, rather than letting the copy
+look like it pinned something.
 
 A repo can override the global config with `<repo>/.groundwork/memory-loop.json`.
 

@@ -1,6 +1,6 @@
 ---
 name: consolidate
-description: Periodically merge the memory index and long-tier memory files — deduplicate, resolve contradictions to the current truth, absolutize dates — and propose the result for your confirmation before any write. Use when MEMORY.md grows large (~120+ lines) or long-tier memories accumulate duplicates, contradictions, or stale facts.
+description: Periodically merge the memory index, long-tier memory files, and the habit file — deduplicate, resolve contradictions to the current truth, absolutize dates, bring HABITS.md back under budget — and propose the result for your confirmation before any write. Use when MEMORY.md grows large (~120+ lines), when the habit file is over budget, or when memories accumulate duplicates, contradictions, or stale facts.
 ---
 
 # memory-loop: consolidate
@@ -22,10 +22,13 @@ It is a manual skill — there is no forced trigger. Run it when:
 - `MEMORY.md` has grown large (~120+ lines).
 - A learning-review nudge surfaced duplicate or contradictory notes.
 - A big piece of work finished and left several related memories behind.
+- The learning-nudge hook reported HABITS.md over budget, or a write to it was
+  denied by `habits-budget-guard.sh`.
 
 ## Scope — what it may touch
 
-Read `MEMORY.md` and the `tier: long` memory files beside it. **Exclude:**
+Read `MEMORY.md`, the `tier: long` memory files beside it, and the habit file
+(`habitsPath`, default `~/.claude/groundwork/HABITS.md`). **Exclude:**
 
 | Excluded | Why |
 |----------|-----|
@@ -50,9 +53,37 @@ Review each memory or group through five lenses (the consolidation prompt):
 5. **Preserve** — keep decisions and their rationale, architecture, preferences,
    and problem/solution pairs.
 
+## The habit pass
+
+HABITS.md is consolidated by the same five verbs, with one extra constraint: it
+has a hard budget (`habitsBudgetBytes`, default 8000; `habitsMaxRules`, default
+24) that a PreToolUse guard enforces at the write. Capture has an automatic
+trigger and pruning does not, so without this pass the file only ever grows.
+
+- **Merge by trigger, not by wording.** Two rules that fire in the same moment
+  are one rule however differently they are phrased. A cluster of rules that all
+  say "check the real artifact before claiming it" in the vocabulary of
+  different incidents is the single most common way the file fills up.
+- **Re-apply the three gates** (damage / recurrence / generality) to every
+  existing rule, not just to new ones. A rule that names one script, one flag,
+  or one repo's layout fails generality now even if it passed when it was
+  written — route it to that repo's `CLAUDE.md` or the wiki.
+- **Discard means archive**, exactly as for memories: move the rule to
+  `HABITS-ARCHIVE.md` beside HABITS.md, keeping its `[Cnn]` pointer so the case
+  record still resolves. Never touch HABITS-CASES.md itself — the cases outlive
+  the rules that cited them.
+- **Never reword a rule while relocating it.** Moving and editing in the same
+  step is the hardest kind of change to review afterwards.
+- Report the before/after of both numbers: bytes and rule count.
+
+🛑 hard lines are consolidated, never dropped for budget: merge overlapping
+prohibitions and compress their inline background to one sentence, but a
+prohibition leaves this file only when it is promoted to a hook that enforces it.
+
 ## Procedure
 
-1. **Read** (read-only) `MEMORY.md` and the in-scope long-tier files.
+1. **Read** (read-only) `MEMORY.md`, the in-scope long-tier files, and — when
+   this run includes the habit pass — all of HABITS.md.
 2. **Apply the five verbs** and draft a **per-file action table** — no writing yet:
 
    ```

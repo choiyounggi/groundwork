@@ -246,3 +246,80 @@ make_habits() {                      # $1 = size in bytes
   [ "$status" -eq 0 ]
   [[ "$(printf '%s' "$output" | jq -r '.reason')" == *"tilde-habits.md is 50000 bytes"* ]]
 }
+
+# --- budget notice -----------------------------------------------------------
+# The nudge and habits-budget-guard.sh read the same two settings. Once the file
+# is over budget the review has to ask for consolidation instead of capture,
+# otherwise it proposes additions the guard is about to deny.
+
+fire_nudge() {
+  printf '9' > "$STATE/nudge-counter"
+  run_hook
+}
+
+@test "budget notice: a file under budget produces no notice" {
+  mkdir -p "$HOME/.claude/groundwork"
+  printf '# HABITS\n- **a rule**\n' > "$HOME/.claude/groundwork/HABITS.md"
+  run fire_nudge
+  [ "$status" -eq 0 ]
+  [[ "$(printf '%s' "$output" | jq -r '.reason')" != *"OVER BUDGET"* ]]
+}
+
+@test "budget notice: past the byte budget the nudge asks for consolidation" {
+  mkdir -p "$HOME/.claude/groundwork"
+  head -c 9000 < /dev/zero | tr '\0' 'x' > "$HOME/.claude/groundwork/HABITS.md"
+  run fire_nudge
+  [ "$status" -eq 0 ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" == *"OVER BUDGET"* ]]
+  [[ "$reason" == *"9000 bytes against a 8000-byte budget"* ]]
+  [[ "$reason" == *"Consolidate before you capture"* ]]
+}
+
+@test "budget notice: past the rule cap it names the count even when small" {
+  mkdir -p "$HOME/.claude/groundwork"
+  i=1; : > "$HOME/.claude/groundwork/HABITS.md"
+  while [ "$i" -le 25 ]; do printf -- '- **rule %s**\n' "$i" >> "$HOME/.claude/groundwork/HABITS.md"; i=$((i + 1)); done
+  run fire_nudge
+  [ "$status" -eq 0 ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" == *"25 rules against a cap of 24"* ]]
+  [[ "$reason" != *"byte budget"* ]]
+}
+
+@test "budget notice: over on both axes reports both" {
+  mkdir -p "$HOME/.claude/groundwork"
+  i=1; : > "$HOME/.claude/groundwork/HABITS.md"
+  while [ "$i" -le 25 ]; do
+    printf -- '- **rule %s: %s**\n' "$i" "$(head -c 400 < /dev/zero | tr '\0' 'x')" >> "$HOME/.claude/groundwork/HABITS.md"
+    i=$((i + 1))
+  done
+  run fire_nudge
+  [ "$status" -eq 0 ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" == *"-byte budget, and 25 rules against a cap of 24"* ]]
+}
+
+@test "budget notice: zero on both settings disables it" {
+  mkdir -p "$HOME/.claude/groundwork"
+  printf '{"habitsBudgetBytes": 0, "habitsMaxRules": 0}' > "$HOME/.claude/groundwork/memory-loop.json"
+  head -c 90000 < /dev/zero | tr '\0' 'x' > "$HOME/.claude/groundwork/HABITS.md"
+  run fire_nudge
+  [ "$status" -eq 0 ]
+  [[ "$(printf '%s' "$output" | jq -r '.reason')" != *"OVER BUDGET"* ]]
+}
+
+@test "budget notice: a missing habit file produces no notice" {
+  run fire_nudge
+  [ "$status" -eq 0 ]
+  [[ "$(printf '%s' "$output" | jq -r '.reason')" != *"OVER BUDGET"* ]]
+}
+
+@test "the review text states the three capture gates" {
+  run fire_nudge
+  [ "$status" -eq 0 ]
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [[ "$reason" == *"damage"* ]]
+  [[ "$reason" == *"recurrence"* ]]
+  [[ "$reason" == *"generality"* ]]
+}
