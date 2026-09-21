@@ -39,6 +39,15 @@ add_item() {
   [[ "$output" == *"/memory-loop:tutor"* ]]
 }
 
+@test "the one-liner's exact wording is pinned" {
+  run add_item item-1
+  [ "$status" -eq 0 ]
+
+  run run_hook
+  [ "$status" -eq 0 ]
+  [ "$output" = "memory-loop tutor: 1개 복습 항목이 대기 중 — '/memory-loop:tutor' 로 복습을 시작하세요." ]
+}
+
 # ---------- error ----------
 
 @test "scheduler script absent: silent exit 0" {

@@ -3,7 +3,8 @@
 #
 # SessionStart hook. Moves memory files whose frontmatter says `tier: short`
 # with an `expires: YYYY-MM-DD` date that has passed into that directory's
-# archived/ subfolder — never deleting anything — and prints a report so the
+# archived/ subfolder — never deleting anything — and prints one line pointing
+# at a report (~/.claude/groundwork/memory-loop/expiry-sweep-last.md) so the
 # agent can tidy the memory index and offer promotions.
 #
 # Config precedence (git-config style): built-in default
@@ -30,6 +31,7 @@ CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 
 GLOBAL_CFG="${HOME}/.claude/groundwork/memory-loop.json"
 REPO_CFG="${CWD}/.groundwork/memory-loop.json"
+STATE_DIR="${HOME}/.claude/groundwork/memory-loop"
 
 # Project memory dir: Claude Code stores per-project memory under
 # ~/.claude/projects/<slug>/memory, where <slug> is the cwd with every
@@ -90,10 +92,16 @@ for dir in "${DIRS[@]}"; do
   done
 done
 
+DETAIL_FILE="${STATE_DIR}/expiry-sweep-last.md"
+
 if [ "$count" -gt 0 ]; then
-  printf 'Memory expiry sweep: %d short-tier memory file(s) moved to archived/ (not deleted).\n' "$count"
-  printf '%s' "$report"
-  printf 'Next: remove the corresponding index lines from that directory%ss MEMORY.md.\n' "'"
-  printf 'If any archived fact is still valid, offer the user a promotion to tier: long (restore from archived/ and re-save through the save gate) — confirm with the user first.\n'
+  mkdir -p "$STATE_DIR" 2>/dev/null || true
+  {
+    printf 'Memory expiry sweep: %d short-tier memory file(s) moved to archived/ (not deleted).\n' "$count"
+    printf '%s' "$report"
+    printf 'Next: remove the corresponding index lines from that directory%ss MEMORY.md.\n' "'"
+    printf 'If any archived fact is still valid, offer the user a promotion to tier: long (restore from archived/ and re-save through the save gate) — confirm with the user first.\n'
+  } > "$DETAIL_FILE"
+  printf 'Memory expiry sweep: %d file(s) archived (not deleted) — details: %s; run "/memory-loop:consolidate" to update the index.\n' "$count" "$DETAIL_FILE"
 fi
 exit 0
