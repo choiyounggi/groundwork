@@ -65,8 +65,9 @@ cp "${CLAUDE_PLUGIN_ROOT}/examples/memory-loop.example.json" ~/.claude/groundwor
 ```
 
 Explain the four keys before copying:
-- `nudgeInterval` — the learning-review nudge fires every N responses
-  (default 10; raise it for less frequent reviews).
+- `correctionInjectionCap` — max correction-signal context injections per
+  session (default 3; `0` disables injection, but every match is still
+  recorded to `signals.jsonl`).
 - `habitsBudgetBytes` — size budget for the always-loaded habit file (default
   8000). A write past it is denied; `0` disables the check.
 - `habitsMaxRules` — rule-count cap for that file, 🟢 and 🛑 together (default
@@ -87,12 +88,14 @@ Run each hook once with stub input and show the user what got injected:
 ```bash
 printf '{}' | bash "${CLAUDE_PLUGIN_ROOT}/hooks/identity-context.sh"
 printf '{}' | bash "${CLAUDE_PLUGIN_ROOT}/hooks/memory-expiry-sweep.sh"
-printf '{"stop_hook_active": false}' | bash "${CLAUDE_PLUGIN_ROOT}/hooks/learning-nudge.sh"
+printf '{"session_id":"setup-smoke","prompt":"that is wrong"}' | bash "${CLAUDE_PLUGIN_ROOT}/hooks/correction-signal.sh"
 ```
 
 Expected: identity prints either the configured names or the setup offer; the
-sweep prints nothing (or a report if something already lapsed); the nudge
-prints nothing on a first run (it fires every N responses).
+sweep prints nothing (or a report if something already lapsed); the
+correction-signal smoke test prints one line of JSON —
+`{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"Correction signal: ..."}}`
+— because "that is wrong" matches the `wrong` keyword.
 
 Finish by pointing at the two everyday skills: `remember` (the save gate for
 memories) and `habit` (distilling lessons into HABITS.md).

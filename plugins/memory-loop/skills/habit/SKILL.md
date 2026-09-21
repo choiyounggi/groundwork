@@ -1,6 +1,6 @@
 ---
 name: habit
-description: Distill a lesson — a mistake, a user correction, or a praised behavior — into HABITS.md as a positive practice or a hard line, after it clears the damage/recurrence/generality gate. Use after the user corrects you, after an incident, or when the learning-nudge hook fires.
+description: Distill a lesson — a mistake, a user correction, or a praised behavior — into HABITS.md as a positive practice or a hard line, after it clears the damage/recurrence/generality gate. Use after the user corrects you, after an incident, or when a correction signal fires.
 ---
 
 # memory-loop: habit
@@ -51,8 +51,8 @@ goes*, not by the action alone.
 | Nothing — a fact, not a behavior | a memory (`memory-loop:remember`) | Habits are rules for acting; facts are recalled on demand. |
 | All three cleared | HABITS.md | The always-loaded set. |
 
-Routing away is the normal outcome. "Learning review: nothing to persist" is a
-complete and correct result for most sessions.
+Routing away is the normal outcome — most sessions have nothing that
+clears all three gates, and that is a complete and correct result.
 
 ## Budget — the file is capped, and the cap is enforced
 

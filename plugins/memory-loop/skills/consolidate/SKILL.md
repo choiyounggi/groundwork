@@ -20,10 +20,13 @@ and, like `remember`, **never writes without your confirmation**.
 It is a manual skill — there is no forced trigger. Run it when:
 
 - `MEMORY.md` has grown large (~120+ lines).
-- A learning-review nudge surfaced duplicate or contradictory notes.
+- `signals.jsonl` has accumulated correction signals worth reviewing (see
+  the signals pass below).
 - A big piece of work finished and left several related memories behind.
-- The learning-nudge hook reported HABITS.md over budget, or a write to it was
-  denied by `habits-budget-guard.sh`.
+- The SessionStart upkeep check (`memory-staleness-check.sh`) reported
+  `habits over budget`, `habits over rule cap`, or `habits over split
+  threshold` — or a write to HABITS.md was denied by
+  `habits-budget-guard.sh`.
 - The SessionStart upkeep check (`memory-staleness-check.sh`) listed
   re-verification candidates, index drift, orphans or broken index links — it
   is the closest thing this skill has to a trigger, and it only ever reports.
@@ -113,9 +116,34 @@ trigger and pruning does not, so without this pass the file only ever grows.
 prohibitions and compress their inline background to one sentence, but a
 prohibition leaves this file only when it is promoted to a hook that enforces it.
 
+## The signals pass
+
+`~/.claude/groundwork/memory-loop/signals.jsonl` accumulates one line per
+detected correction (`hooks/correction-signal.sh`, UserPromptSubmit):
+three keys only — `ts`, `session_id`, `matched` (a list of keyword
+labels: 아니, 그게아니라, 틀렸, 다시해, dont, wrong) — never the prompt
+text itself.
+
+1. **Read** the file (read-only) and **group** its lines by `matched`
+   label and by `session_id` — several corrections in one session on the
+   same label is the strongest signal of a repeated mistake worth
+   capturing.
+2. **Propose** habit or memory candidates for any group that looks like a
+   recurring pattern, in the same per-file action table style as the
+   rest of this skill (File / Action / Basis) — never invent a candidate
+   from a single isolated signal. Route each proposal through its owning
+   skill (`memory-loop:habit`'s three gates, or `memory-loop:remember`'s
+   save gate) rather than writing anything directly here.
+3. **Confirm before truncating.** After the user approves, applies, or
+   explicitly declines the proposals, truncate `signals.jsonl` to remove
+   only the lines just reviewed (keep any appended after this run
+   started). Never truncate before that confirmation — an unreviewed
+   signal is not "handled" just because it was read.
+
 ## Procedure
 
-1. **Read** (read-only) `MEMORY.md`, the in-scope long-tier files, and — when
+1. **Read** (read-only) `MEMORY.md`, the in-scope long-tier files,
+   `signals.jsonl` when this run includes the signals pass, and — when
    this run includes the habit pass — all of HABITS.md.
 2. **Apply the five verbs** and draft a **per-file action table** — no writing yet:
 

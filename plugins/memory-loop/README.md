@@ -11,8 +11,8 @@ plugin adds the loop around the storage:
 
 ```
 capture ──────────► operate ─────────────► retire
-learning nudge      save gate +            expiry sweep →
-(every N replies)   tier/expires,          archived/ (never deleted)
+correction signal   save gate +            expiry sweep →
+(flags a mistake)   tier/expires,          archived/ (never deleted)
                     consolidate
 ```
 
@@ -54,8 +54,20 @@ is still whatever you had. To close that gap:
 3. Leave your CLAUDE.md import pointing at HABITS.md only.
 
 Doing nothing is also fine: a single-file HABITS.md keeps working. The
-learning-review nudge will mention the split once the file crosses
-`habitsSplitWarnBytes`, and it tells you when no cases file exists yet.
+SessionStart memory-upkeep check will mention the split once the file
+crosses `habitsSplitWarnBytes`, and it tells you when no cases file
+exists yet.
+
+## Upgrading from 1.x
+
+The Stop-hook learning nudge is gone; `nudgeInterval` in your config is
+now ignored (no warning — the key is simply unread). Its two jobs split:
+the `correction-signal.sh` hook (UserPromptSubmit) now flags likely
+corrections as they happen, capped by `correctionInjectionCap` (default
+3), and the habit byte-budget/rule-cap/split-threshold check moved into
+`memory-staleness-check.sh`'s SessionStart report, evaluated every
+session. Nothing to migrate — both are active by default after the
+upgrade.
 
 ## Relationship to native memory
 
@@ -80,11 +92,11 @@ the other grows a continuous, self-correcting agent.
 | Hook | Event | What it does |
 |------|-------|--------------|
 | `identity-context.sh` | SessionStart | Injects "The user's name is X. Your name is Y." — or offers a one-time name setup when unconfigured; silent forever after a decline |
-| `memory-staleness-check.sh` | SessionStart | Reports what a consolidation pass would look at — memories past their review window, index drift, orphans, broken index links, an oversized index, an overdue consolidate run — then goes quiet for a cooldown. Reports only; never writes |
-| `memory-expiry-sweep.sh` | SessionStart | Moves lapsed `tier: short` memories into `archived/` (never deletes) and reports, so the agent tidies the index and offers promotions |
+| `memory-staleness-check.sh` | SessionStart | One line naming which upkeep buckets fired (re-verify, index drift, broken links, orphans, oversized index, consolidate overdue, plus the always-on habit budget/rule-cap/split-threshold checks), pointing at `~/.claude/groundwork/memory-loop/staleness-last-detail.md` for the full report; silent when nothing to report. Reports only; never writes |
+| `memory-expiry-sweep.sh` | SessionStart | Moves lapsed `tier: short` memories into `archived/` (never deletes) and prints one line naming the count, pointing at `~/.claude/groundwork/memory-loop/expiry-sweep-last.md` for the full report — so the agent tidies the index and offers promotions; silent when nothing lapsed |
 | `habits-budget-guard.sh` | PreToolUse (Edit\|Write) | Denies a write that grows the habit file past its byte/rule budget; a write that shrinks it is always allowed, so the way out is never blocked |
-| `learning-nudge.sh` | Stop | Every N responses, reminds the agent to check the recent work for habits, skills, and memories worth persisting — each routed through the save gate and the three capture gates. Over budget, it asks for consolidation instead of capture |
-| `tutor-due-check.sh` | SessionStart | One quiet reminder line when tutor items are due, silent otherwise |
+| `correction-signal.sh` | UserPromptSubmit | When the prompt looks like a correction (Korean or English keyword), records one line to `signals.jsonl` and injects one context line suggesting a habit or memory capture — capped at `correctionInjectionCap` injections per session (default 3; every match is still recorded) |
+| `tutor-due-check.sh` | SessionStart | One line when tutor items are due, naming the count and the `/memory-loop:tutor` skill; silent otherwise — no detail file needed for a single line |
 
 ## Skills
 
@@ -138,10 +150,10 @@ global overrides built-in defaults.
 
 | Key | Default | Meaning |
 |-----|---------|---------|
-| `nudgeInterval` | `10` | Fire the learning-review nudge every N responses |
-| `habitsBudgetBytes` | `8000` | Size budget for the always-loaded habit file. A write past it is denied, and the nudge switches from capture to consolidation (`0` disables) |
+| `correctionInjectionCap` | `3` | Max correction-signal context injections per session; `0` disables injection but every match is still recorded to `signals.jsonl` |
+| `habitsBudgetBytes` | `8000` | Size budget for the always-loaded habit file. A write past it is denied, and the memory-upkeep check (`memory-staleness-check.sh`) reports it every session (`0` disables) |
 | `habitsMaxRules` | `24` | Rule-count cap for the habit file, 🟢 and 🛑 counted together (`0` disables) |
-| `habitsSplitWarnBytes` | `40000` | Past this size, the nudge also asks for the habit file's background prose to move into the cases file (`0` disables) |
+| `habitsSplitWarnBytes` | `40000` | Past this size, the memory-upkeep check also reports that the habit file's background prose should move into the cases file (`0` disables) |
 | `habitsPath` | `~/.claude/groundwork/HABITS.md` | The habit file the budget guard and size checks read — set this if you import your own file from elsewhere (`~` supported) |
 | `habitsCasesPath` | `HABITS-CASES.md` beside `habitsPath` | Where its case records live (`~` supported) |
 | `memoryReviewDays` | `90` | A memory untouched for this long becomes a re-verification candidate (`0` disables) |
@@ -150,7 +162,9 @@ global overrides built-in defaults.
 | `memoryCheckCooldownDays` | `7` | Stay silent for this long after an upkeep report (`0` reports every session) |
 | `extraMemoryDirs` | `[]` | Additional memory directories to sweep, beyond the current project's own (`~` supported) |
 
-State (identity, nudge counter) lives in `~/.claude/groundwork/memory-loop/`.
+State (identity, `signals.jsonl`, `correction-sessions/`,
+`expiry-sweep-last.md`, `staleness-last-detail.md`) lives in
+`~/.claude/groundwork/memory-loop/`.
 
 ## Expiry semantics
 

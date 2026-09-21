@@ -1,6 +1,6 @@
 {
   "_comment": "Copy to .groundwork/memory-loop.json (repo, team-shared) or ~/.claude/groundwork/memory-loop.json (global). Repo overrides global overrides built-in defaults. Every field is optional.",
-  "nudgeInterval": 10,
+  "correctionInjectionCap": 3,
   "habitsBudgetBytes": 8000,
   "habitsMaxRules": 24,
   "memoryReviewDays": 90,
