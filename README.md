@@ -28,7 +28,7 @@ continuity — you can install together or à la carte:
 |--------|-------------------|
 | **guardrails** | A safe-by-default Bash guard — **blocks** supply-chain (`curl \| sh`), disk-destroying (`dd`/`mkfs`), and fork-bomb commands; **asks** before `rm -rf`, force-push, `DROP`/`TRUNCATE`, `kubectl delete`, credential/`.env` access, cloud-resource deletion, and secret exports. Plus a **redacted** audit log. Every rule is configurable. |
 | **[dev-loop](https://github.com/choiyounggi/dev-loop)** | A wiki-grounded implementation loop **and a multi-session orchestrator**. The loop plans through **three mechanically gated phases** (Analyze → Design → Decompose: evidence-backed analysis, wiki-routed decisions independently reviewed by a fresh-context `plan-reviewer` agent) against a semantic-layer best-practices wiki, verifies every task (TDD / PDCA / Reflexion), and grows the wiki from what you actually learn. Bigger than one task? `orchestrate` decomposes the goal into a **dependency graph** and schedules parallel worker sessions the moment their dependencies clear — **Orca-native** when Orca is installed (tracked Task/Dispatch provenance, event-driven `worker_done`/`ask`/`escalation` mail, native liveness), plain tmux otherwise — with two human gates around it. |
-| **memory-loop** | A memory lifecycle for your agent — a save gate against hallucinated memories, tiered expiry with archive-not-delete, a periodic learning-review nudge, a habit-distillation frame (HABITS.md), and an optional one-time identity setup (the assistant can even pick its own name). |
+| **memory-loop** | A memory lifecycle for your agent — a save gate against hallucinated memories, tiered expiry with archive-not-delete, a correction-signal hook that flags repeated mistakes as they happen, a habit-distillation frame (HABITS.md), and an optional one-time identity setup (the assistant can even pick its own name). |
 
 ## Install
 
@@ -133,7 +133,7 @@ groundwork is a small, honest core you extend — not a walled garden:
   MCP, `explore` at your code search, `design` at Figma, `research` at your web-search tool (falls back to brave-search MCP, then built-in WebSearch). The bundled best-practices wiki
   then **grows from what you learn** via `knowledge-flush` → reviewed PRs.
 - **memory-loop** — your agent's memory and habits stay plain local files you can
-  read and edit; tune the nudge cadence and swept directories in
+  read and edit; tune the correction-signal injection cap and swept directories in
   `.groundwork/memory-loop.json`, and grow HABITS.md from your own corrections.
 
 Bring your own wiki, your own tests, your own patterns — the harness adapts.

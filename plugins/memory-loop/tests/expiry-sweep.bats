@@ -4,6 +4,8 @@
 # everything else (no tier, long tier, conditional expiry, MEMORY.md, the
 # expiry day itself) must be provably left untouched.
 
+bats_require_minimum_version 1.5.0
+
 setup() {
   HOOK="${BATS_TEST_DIRNAME}/../hooks/memory-expiry-sweep.sh"
   export HOME="$BATS_TEST_TMPDIR/home"
@@ -26,14 +28,78 @@ run_hook() {
   jq -cn --arg c "$PROJ" '{cwd: $c}' | bash "$HOOK"
 }
 
+# Tests below chmod dirs read-only; give write back so bats can clean up.
+teardown() {
+  chmod -R u+w "$BATS_TEST_TMPDIR" 2>/dev/null || true
+}
+
+FALLBACK_ONE='Memory expiry sweep: 1 file(s) archived (not deleted); run "/memory-loop:consolidate" to update the index.'
+
 @test "archives a lapsed short-tier memory and reports it" {
   mem_file "$MEM" "old-note.md" "tier: short" "expires: 2000-01-01"
   run run_hook
   [ "$status" -eq 0 ]
   [ ! -e "$MEM/old-note.md" ]
   [ -e "$MEM/archived/old-note.md" ]
-  [[ "$output" == *"old-note.md (expired 2000-01-01"* ]]
-  [[ "$output" == *"moved to archived/"* ]]
+  [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" = "1" ]
+  [[ "$output" == *"1 file(s) archived"* ]]
+  [[ "$output" == *"$HOME/.claude/groundwork/memory-loop/expiry-sweep-last.md"* ]]
+  DETAIL="$HOME/.claude/groundwork/memory-loop/expiry-sweep-last.md"
+  [ -f "$DETAIL" ]
+  grep -qF "old-note.md (expired 2000-01-01" "$DETAIL"
+  grep -qF "moved to archived/" "$DETAIL"
+}
+
+@test "two files archived in one run: still one line, detail file lists both" {
+  mem_file "$MEM" "first.md" "tier: short" "expires: 2000-01-01"
+  mem_file "$MEM" "second.md" "tier: short" "expires: 2001-02-03"
+  run run_hook
+  [ "$status" -eq 0 ]
+  [ -e "$MEM/archived/first.md" ]
+  [ -e "$MEM/archived/second.md" ]
+  [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" = "1" ]
+  [[ "$output" == *"2 file(s) archived"* ]]
+  [[ "$output" != *"first.md"* ]]
+  DETAIL="$HOME/.claude/groundwork/memory-loop/expiry-sweep-last.md"
+  grep -qF "first.md (expired 2000-01-01" "$DETAIL"
+  grep -qF "second.md (expired 2001-02-03" "$DETAIL"
+  grep -qF "MEMORY.md" "$DETAIL"
+}
+
+@test "state dir blocked by a regular file: still archives and exits 0" {
+  mkdir -p "$HOME/.claude/groundwork"
+  printf 'not a dir' > "$HOME/.claude/groundwork/memory-loop"
+  mem_file "$MEM" "old-note.md" "tier: short" "expires: 2000-01-01"
+  run --separate-stderr run_hook
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ "$output" = "$FALLBACK_ONE" ]
+  [ ! -e "$MEM/old-note.md" ]
+  [ -e "$MEM/archived/old-note.md" ]
+  [ -f "$HOME/.claude/groundwork/memory-loop" ]
+}
+
+@test "unwritable groundwork dir: archives silently, one line without a details clause" {
+  mkdir -p "$HOME/.claude/groundwork"
+  chmod 555 "$HOME/.claude/groundwork"
+  mem_file "$MEM" "old-note.md" "tier: short" "expires: 2000-01-01"
+  run --separate-stderr run_hook
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ "$output" = "$FALLBACK_ONE" ]
+  [ -e "$MEM/archived/old-note.md" ]
+  [ ! -e "$HOME/.claude/groundwork/memory-loop/expiry-sweep-last.md" ]
+}
+
+@test "unwritable memory dir: archived/ cannot be made, file stays, nothing on stderr" {
+  mem_file "$MEM" "old-note.md" "tier: short" "expires: 2000-01-01"
+  chmod 555 "$MEM"
+  run --separate-stderr run_hook
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ -z "$output" ]
+  [ -e "$MEM/old-note.md" ]
+  [ ! -e "$MEM/archived" ]
 }
 
 @test "expiry date is exclusive: a file expiring today stays live" {
@@ -42,6 +108,7 @@ run_hook() {
   [ "$status" -eq 0 ]
   [ -e "$MEM/today.md" ]
   [ -z "$output" ]
+  [ ! -e "$HOME/.claude/groundwork/memory-loop/expiry-sweep-last.md" ]
 }
 
 @test "long-tier files are never swept even with a past expires" {
@@ -50,6 +117,7 @@ run_hook() {
   [ "$status" -eq 0 ]
   [ -e "$MEM/keep.md" ]
   [ -z "$output" ]
+  [ ! -e "$HOME/.claude/groundwork/memory-loop/expiry-sweep-last.md" ]
 }
 
 @test "native files without a tier key are never touched" {
@@ -58,6 +126,7 @@ run_hook() {
   [ "$status" -eq 0 ]
   [ -e "$MEM/native.md" ]
   [ -z "$output" ]
+  [ ! -e "$HOME/.claude/groundwork/memory-loop/expiry-sweep-last.md" ]
 }
 
 @test "conditional expires_when is never auto-archived" {
@@ -66,6 +135,7 @@ run_hook() {
   [ "$status" -eq 0 ]
   [ -e "$MEM/cond.md" ]
   [ -z "$output" ]
+  [ ! -e "$HOME/.claude/groundwork/memory-loop/expiry-sweep-last.md" ]
 }
 
 @test "MEMORY.md is always skipped" {
@@ -74,6 +144,7 @@ run_hook() {
   [ "$status" -eq 0 ]
   [ -e "$MEM/MEMORY.md" ]
   [ -z "$output" ]
+  [ ! -e "$HOME/.claude/groundwork/memory-loop/expiry-sweep-last.md" ]
 }
 
 @test "empty stdin falls back to PWD as the project cwd" {
@@ -88,6 +159,7 @@ run_hook() {
   run run_hook
   [ "$status" -eq 0 ]
   [ -z "$output" ]
+  [ ! -e "$HOME/.claude/groundwork/memory-loop/expiry-sweep-last.md" ]
 }
 
 @test "repo config wins over global config for extraMemoryDirs" {
@@ -116,5 +188,5 @@ run_hook() {
   run run_hook
   [ "$status" -eq 0 ]
   [ -e "$EXTRA/archived/extra-old.md" ]
-  [[ "$output" == *"extra-old.md"* ]]
+  grep -qF "extra-old.md" "$HOME/.claude/groundwork/memory-loop/expiry-sweep-last.md"
 }

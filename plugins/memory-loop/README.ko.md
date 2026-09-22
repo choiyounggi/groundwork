@@ -11,8 +11,8 @@ Claude Code는 이미 메모리를 *저장*할 수 있습니다. 없는 것은 �
 
 ```
 수집 ──────────────► 운영 ──────────────► 소멸
-학습 리뷰 넛지        저장 게이트 +          만료 스윕 →
-(N회 응답마다)        tier/expires,         archived/ (삭제는 절대 없음)
+교정 시그널          저장 게이트 +          만료 스윕 →
+(교정 감지 시)        tier/expires,         archived/ (삭제는 절대 없음)
                      consolidate
 ```
 
@@ -54,8 +54,19 @@ Claude Code는 이미 메모리를 *저장*할 수 있습니다. 없는 것은 �
 3. CLAUDE.md의 import는 HABITS.md만 가리키게 유지합니다.
 
 그냥 두어도 됩니다 — 단일 파일 HABITS.md는 계속 동작합니다. 파일이
-`habitsSplitWarnBytes`를 넘으면 학습 리뷰 넛지가 분리를 안내하며, 사례 파일이
-아직 없으면 그 사실도 함께 알려줍니다.
+`habitsSplitWarnBytes`를 넘으면 SessionStart 메모리 업킵 체크가 분리를 안내하며,
+사례 파일이 아직 없으면 그 사실도 함께 알려줍니다.
+
+## 1.x에서 업그레이드
+
+Stop 훅 학습 넛지는 제거되었습니다. 설정의 `nudgeInterval`은 이제
+무시됩니다(경고 없음 — 그 키를 그냥 읽지 않습니다). 두 역할은
+분리되었습니다: `correction-signal.sh` 훅(UserPromptSubmit)이 교정을
+실시간으로 감지해 `correctionInjectionCap`(기본 3)으로 상한을 두고,
+습관 파일의 바이트 예산/규칙 수 상한/분리 임계값 체크는
+`memory-staleness-check.sh`의 SessionStart 보고로 옮겨져 매 세션
+평가됩니다. 업그레이드 후 둘 다 기본으로 동작하므로 따로 마이그레이션할
+것은 없습니다.
 
 ## 네이티브 메모리와의 관계
 
@@ -79,11 +90,11 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 | 훅 | 이벤트 | 하는 일 |
 |------|-------|--------------|
 | `identity-context.sh` | SessionStart | "The user's name is X. Your name is Y." 주입 — 미설정이면 1회성 이름 설정 제안, 거절 후엔 영원히 침묵 |
-| `memory-staleness-check.sh` | SessionStart | 정리 패스가 들여다볼 대상을 보고 — 리뷰 주기를 넘긴 메모리, 인덱스 드리프트, 고아 파일, 깨진 인덱스 링크, 비대해진 인덱스, 밀린 consolidate 실행 — 이후 쿨다운 동안 침묵. 보고만 하고 쓰지 않음 |
-| `memory-expiry-sweep.sh` | SessionStart | 만료된 `tier: short` 메모리를 `archived/`로 이동(삭제 아님)하고 리포트 — 에이전트가 인덱스를 정리하고 승격을 제안하게 함 |
+| `memory-staleness-check.sh` | SessionStart | 어떤 정리 버킷이 발화했는지(재검증, 인덱스 드리프트, 깨진 링크, 고아 파일, 비대한 인덱스, 밀린 consolidate, 그리고 항상 평가되는 습관 예산/규칙수/분리 임계값 체크) 한 줄로 요약하고 `~/.claude/groundwork/memory-loop/staleness-last-detail.md`를 가리킴 — 보고할 것이 없으면 침묵. 보고만 하고 쓰지 않음 |
+| `memory-expiry-sweep.sh` | SessionStart | 만료된 `tier: short` 메모리를 `archived/`로 이동(삭제 아님)하고, 개수를 담은 한 줄과 `~/.claude/groundwork/memory-loop/expiry-sweep-last.md` 경로를 출력 — 에이전트가 인덱스를 정리하고 승격을 제안하게 함; 만료된 것이 없으면 침묵 |
 | `habits-budget-guard.sh` | PreToolUse (Edit\|Write) | 습관 파일을 예산(바이트/규칙 수) 너머로 키우는 쓰기를 거부 — 파일을 줄이는 쓰기는 항상 허용하므로 빠져나갈 길은 막지 않음 |
-| `learning-nudge.sh` | Stop | N회 응답마다, 최근 작업에서 남길 가치가 있는 습관·스킬·메모리를 점검하도록 리마인드 — 각 후보는 저장 게이트와 세 개의 캡처 게이트를 거침. 예산 초과 상태에서는 캡처 대신 정리를 요구 |
-| `tutor-due-check.sh` | SessionStart | 튜터 복습 항목이 대기 중일 때 조용한 리마인드 한 줄, 아니면 침묵 |
+| `correction-signal.sh` | UserPromptSubmit | 프롬프트가 교정처럼 보이면(한국어/영어 키워드) `signals.jsonl`에 한 줄을 기록하고, 습관이나 메모리 캡처를 제안하는 컨텍스트 한 줄을 주입 — 세션당 `correctionInjectionCap`(기본 3)으로 상한, 상한을 넘어도 기록은 계속됨 |
+| `tutor-due-check.sh` | SessionStart | 복습 대기 항목이 있을 때 개수와 `/memory-loop:tutor` 스킬을 담은 한 줄, 아니면 침묵 — 한 줄이라 별도 상세 파일은 없음 |
 
 ## 스킬
 
@@ -136,10 +147,10 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 
 | 키 | 기본값 | 의미 |
 |-----|---------|---------|
-| `nudgeInterval` | `10` | 학습 리뷰 넛지를 N회 응답마다 발화 |
-| `habitsBudgetBytes` | `8000` | 항상 로드되는 습관 파일의 크기 예산. 이를 넘기는 쓰기는 거부되고, 넛지는 캡처 대신 정리를 요구 (`0`이면 비활성) |
+| `correctionInjectionCap` | `3` | 세션당 교정 시그널 컨텍스트 주입 최대 횟수; `0`이면 주입은 비활성화되지만 `signals.jsonl` 기록은 계속됨 |
+| `habitsBudgetBytes` | `8000` | 항상 로드되는 습관 파일의 크기 예산. 이를 넘기는 쓰기는 거부되고, 메모리 업킵 체크(`memory-staleness-check.sh`)가 매 세션 이를 보고함 (`0`이면 비활성) |
 | `habitsMaxRules` | `24` | 습관 파일의 규칙 수 상한 — 🟢과 🛑을 합쳐서 셈 (`0`이면 비활성) |
-| `habitsSplitWarnBytes` | `40000` | 습관 파일이 이 크기를 넘으면 넛지가 배경 산문을 사례 파일로 옮기도록 함께 안내 (`0`이면 비활성) |
+| `habitsSplitWarnBytes` | `40000` | 습관 파일이 이 크기를 넘으면 메모리 업킵 체크가 배경 산문을 사례 파일로 옮기도록 함께 보고 (`0`이면 비활성) |
 | `habitsPath` | `~/.claude/groundwork/HABITS.md` | 예산 가드와 크기 검사가 읽을 습관 파일 — 다른 경로의 파일을 import해서 쓰면 이 값을 지정 (`~` 지원) |
 | `habitsCasesPath` | `habitsPath` 옆의 `HABITS-CASES.md` | 그 사례 기록 파일의 경로 (`~` 지원) |
 | `memoryReviewDays` | `90` | 이 기간 동안 손대지 않은 메모리는 재검증 후보가 됨 (`0`이면 비활성) |
@@ -148,7 +159,9 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 | `memoryCheckCooldownDays` | `7` | 업킵 보고 후 이 기간 동안 침묵 (`0`이면 매 세션 보고) |
 | `extraMemoryDirs` | `[]` | 현재 프로젝트의 메모리 디렉토리 외에 추가로 스윕할 디렉토리 (`~` 지원) |
 
-상태(identity, 넛지 카운터)는 `~/.claude/groundwork/memory-loop/`에 있습니다.
+상태(identity, `signals.jsonl`, `correction-sessions/`,
+`expiry-sweep-last.md`, `staleness-last-detail.md`)는
+`~/.claude/groundwork/memory-loop/`에 있습니다.
 
 ## 만료 시맨틱
 
