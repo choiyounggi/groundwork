@@ -50,7 +50,7 @@ $p as $x
     (if ($x | test("그게\\s*아니라")) then "그게아니라" else empty end),
     (if ($x | test("틀렸")) then "틀렸" else empty end),
     (if ($x | test("다시\\s*해")) then "다시해" else empty end),
-    (if ($x | test("\\bdon['"'"'’]?t\\b"; "i")) then "dont" else empty end),
+    (if ($x | test("\\bdon['"'"'\u2019]?t\\b"; "i")) then "dont" else empty end),
     (if ($x | test("\\bwrong\\b"; "i")) then "wrong" else empty end)
   ]
 ' 2>/dev/null || true)

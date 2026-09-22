@@ -157,3 +157,24 @@ signal_lines() {
   [ ! -e "$STATE/signals.jsonl" ]
   [ "$(cat "$STATE/correction-sessions/sess1")" = "1" ]
 }
+
+@test "normal: don’t with a curly apostrophe (U+2019) is labelled dont" {
+  run run_hook "$(printf 'don\342\200\231t touch that file')"
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')" = "$CTX" ]
+  [ "$(jq -c '.matched' "$STATE/signals.jsonl")" = '["dont"]' ]
+}
+
+@test "normal: don't with an ASCII apostrophe is labelled dont" {
+  run run_hook "don't touch that file"
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')" = "$CTX" ]
+  [ "$(jq -c '.matched' "$STATE/signals.jsonl")" = '["dont"]' ]
+}
+
+@test "boundary: an apostrophe other than ' or ’ between don and t is not a match" {
+  run run_hook "$(printf 'don\342\200\230t touch that file')"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ "$(signal_lines)" = "0" ]
+}
