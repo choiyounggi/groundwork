@@ -4,6 +4,8 @@
 # drifted AND must stay silent otherwise — a session-start reminder that fires
 # on healthy memory is the failure mode it exists to prevent.
 
+bats_require_minimum_version 1.5.0
+
 setup() {
   HOOK="${BATS_TEST_DIRNAME}/../hooks/memory-staleness-check.sh"
   export HOME="$BATS_TEST_TMPDIR/home"
@@ -26,6 +28,11 @@ not_in_detail() { ! grep -qF -- "$1" "$DETAIL"; }
 
 run_hook() {
   jq -cn --arg c "$CWD" '{cwd: $c}' | bash "$HOOK"
+}
+
+# Tests below chmod dirs read-only; give write back so bats can clean up.
+teardown() {
+  chmod -R u+w "$BATS_TEST_TMPDIR" 2>/dev/null || true
 }
 
 # $1 name, $2 frontmatter lines (may be empty), $3 body
@@ -561,4 +568,30 @@ days_back() { date -v-"$1"d +%Y-%m-%d 2>/dev/null || date -d "$1 days ago" +%Y-%
   grep -q '^HABITS.md is over budget: 201 bytes' "$DETAIL"
   grep -q '^HABITS.md is 201 bytes, past the 200-byte split threshold' "$DETAIL"
   grep -q '^Do not act on this automatically' "$DETAIL"
+}
+
+# --- unwritable state: fail open, silently -------------------------------------
+
+@test "unwritable groundwork dir: one line without a details clause, nothing on stderr" {
+  # No state dir and no way to create it: the consolidate-overdue bucket fires
+  # (no last-consolidate), and neither the detail file nor the cooldown
+  # timestamp can be written.
+  rm -rf "$STATE"
+  chmod 555 "$GW"
+  run --separate-stderr run_hook
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ "$output" = 'memory upkeep: consolidate overdue; run "/memory-loop:consolidate".' ]
+  [ ! -e "$STATE" ]
+}
+
+@test "read-only state dir: the detail write fails silently and the line drops the details clause" {
+  stale_long_memory
+  chmod 555 "$STATE"
+  run --separate-stderr run_hook
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ "$output" = 'memory upkeep: re-verify; run "/memory-loop:consolidate".' ]
+  [ ! -e "$DETAIL" ]
+  [ ! -e "$STATE/staleness-last-report" ]
 }

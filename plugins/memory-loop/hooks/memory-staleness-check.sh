@@ -350,7 +350,10 @@ upkeep_ran=""
 
 mkdir -p "$STATE_DIR" 2>/dev/null || true
 DETAIL_FILE="${STATE_DIR}/staleness-last-detail.md"
-{
+# The outer braces catch the redirection's own error (a bare `2>` after it
+# would come too late). No detail file -> no details clause pointing at it.
+details=""
+if { {
   printf 'memory upkeep — the consolidate pass has no automatic trigger, so here is what it would look at:\n'
   [ -n "$stale_long" ] && printf '  - re-verify (%s+ days untouched, tier: long — consolidate may act): %s\n' "$REVIEW_DAYS" "$stale_long"
   [ -n "$stale_conditional" ] && printf '  - re-verify (%s+ days untouched, tier: short with no absolute expiry — nothing will ever archive these; check whether the event already happened): %s\n' "$REVIEW_DAYS" "$stale_conditional"
@@ -362,12 +365,14 @@ DETAIL_FILE="${STATE_DIR}/staleness-last-detail.md"
   [ -n "$overdue" ] && printf '  - consolidate: %s\n' "$overdue"
   [ -n "$habit_detail" ] && printf '%s\n' "$habit_detail"
   printf 'Do not act on this automatically. Offer /memory-loop:consolidate; it proposes and writes only on confirmation. Re-verifying a memory that is still true costs one line: set reviewed: %s in its frontmatter.\n' "$TODAY"
-} > "$DETAIL_FILE"
+} > "$DETAIL_FILE"; } 2>/dev/null; then
+  details=" — details: ${DETAIL_FILE}"
+fi
 
-printf 'memory upkeep: %s — details: %s; run "/memory-loop:consolidate".\n' "$issues" "$DETAIL_FILE"
+printf 'memory upkeep: %s%s; run "/memory-loop:consolidate".\n' "$issues" "$details"
 
 if [ -n "$upkeep_ran" ]; then
   mkdir -p "$STATE_DIR" 2>/dev/null || true
-  printf '%s' "$TODAY" > "$LAST_REPORT_FILE" 2>/dev/null || true
+  { printf '%s' "$TODAY" > "$LAST_REPORT_FILE"; } 2>/dev/null || true
 fi
 exit 0

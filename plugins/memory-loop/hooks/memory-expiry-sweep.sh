@@ -83,7 +83,7 @@ for dir in "${DIRS[@]}"; do
 
     # ISO dates sort lexicographically; strictly-before-today == lapsed.
     if [[ "$exp" < "$TODAY" ]]; then
-      mkdir -p "$dir/archived"
+      mkdir -p "$dir/archived" 2>/dev/null
       if mv "$f" "$dir/archived/$base" 2>/dev/null; then
         count=$((count + 1))
         report="${report}  - ${base} (expired ${exp}, in ${dir})"$'\n'
@@ -96,12 +96,17 @@ DETAIL_FILE="${STATE_DIR}/expiry-sweep-last.md"
 
 if [ "$count" -gt 0 ]; then
   mkdir -p "$STATE_DIR" 2>/dev/null || true
-  {
+  # The outer braces catch the redirection's own error (a bare `2>` after it
+  # would come too late). No detail file -> no details clause pointing at it.
+  details=""
+  if { {
     printf 'Memory expiry sweep: %d short-tier memory file(s) moved to archived/ (not deleted).\n' "$count"
     printf '%s' "$report"
     printf 'Next: remove the corresponding index lines from that directory%ss MEMORY.md.\n' "'"
     printf 'If any archived fact is still valid, offer the user a promotion to tier: long (restore from archived/ and re-save through the save gate) — confirm with the user first.\n'
-  } > "$DETAIL_FILE"
-  printf 'Memory expiry sweep: %d file(s) archived (not deleted) — details: %s; run "/memory-loop:consolidate" to update the index.\n' "$count" "$DETAIL_FILE"
+  } > "$DETAIL_FILE"; } 2>/dev/null; then
+    details=" — details: ${DETAIL_FILE}"
+  fi
+  printf 'Memory expiry sweep: %d file(s) archived (not deleted)%s; run "/memory-loop:consolidate" to update the index.\n' "$count" "$details"
 fi
 exit 0
