@@ -78,20 +78,22 @@ cfg_num() {
 CAP=$(cfg_num correctionInjectionCap 3)
 
 STATE_DIR="${HOME}/.claude/groundwork/memory-loop"
-mkdir -p "$STATE_DIR"
-TS=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)
-jq -cn --arg ts "$TS" --arg sid "$SESSION_ID" --argjson matched "$MATCHED_JSON" \
-  '{ts:$ts, session_id:$sid, matched:$matched}' >> "${STATE_DIR}/signals.jsonl" 2>/dev/null || true
-
 SESS_DIR="${STATE_DIR}/correction-sessions"
-mkdir -p "$SESS_DIR"
+# No state dir means the cap cannot be enforced: record nothing, inject nothing.
+mkdir -p "$SESS_DIR" 2>/dev/null || exit 0
+TS=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)
+# Braces so a failed redirection's own error is silenced too.
+{ jq -cn --arg ts "$TS" --arg sid "$SESSION_ID" --argjson matched "$MATCHED_JSON" \
+  '{ts:$ts, session_id:$sid, matched:$matched}' >> "${STATE_DIR}/signals.jsonl"; } 2>/dev/null || true
+
 SLUG=$(printf '%s' "$SESSION_ID" | sed 's|[^a-zA-Z0-9]|-|g')
 [ -n "$SLUG" ] || SLUG="unknown"
 SESS_FILE="${SESS_DIR}/${SLUG}"
 PRIOR=0
 [ -f "$SESS_FILE" ] && PRIOR=$(cat "$SESS_FILE" 2>/dev/null || printf '0')
 case "$PRIOR" in ''|*[!0-9]*) PRIOR=0 ;; esac
-printf '%s' "$((PRIOR + 1))" > "$SESS_FILE"
+# An unwritten counter would leave PRIOR at 0 forever — never inject then.
+{ printf '%s' "$((PRIOR + 1))" > "$SESS_FILE"; } 2>/dev/null || exit 0
 
 # prune AFTER our own write (refreshes our mtime first) — indiscriminate,
 # see the design notes above for the accepted cost

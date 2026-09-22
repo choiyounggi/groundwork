@@ -4,12 +4,19 @@
 # line is injected at most correctionInjectionCap times per session; malformed
 # input and non-corrections stay silent.
 
+bats_require_minimum_version 1.5.0
+
 setup() {
   HOOK="${BATS_TEST_DIRNAME}/../hooks/correction-signal.sh"
   export HOME="$BATS_TEST_TMPDIR/home"
   STATE="$HOME/.claude/groundwork/memory-loop"
   mkdir -p "$STATE"
   CTX='Correction signal: that looked like a correction. If it points to a repeated mistake, consider capturing a habit (memory-loop "habit" skill) or saving a memory (memory-loop "remember" skill); otherwise continue.'
+}
+
+teardown() {
+  # the unwritable-dir cases chmod parts of $HOME; restore so bats can clean up
+  chmod -R u+w "$HOME" 2>/dev/null || true
 }
 
 run_hook() {
@@ -115,4 +122,38 @@ signal_lines() {
   [ ! -e "$STATE/correction-sessions/stale" ]
   [ -e "$STATE/correction-sessions/fresh" ]
   [ "$(cat "$STATE/correction-sessions/sess3")" = "1" ]
+}
+
+@test "error: unwritable groundwork dir exits 0 with no stdout, no stderr, no record" {
+  rmdir "$STATE"
+  chmod 555 "$HOME/.claude/groundwork"
+  run --separate-stderr run_hook "that is wrong"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ ! -e "$STATE" ]
+}
+
+@test "error: unwritable correction-sessions dir never injects (cap unenforceable) and stays silent" {
+  mkdir -p "$STATE/correction-sessions"
+  chmod 555 "$STATE/correction-sessions"
+  for i in 1 2 3 4; do
+    run --separate-stderr run_hook "that is wrong"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+    [ -z "$stderr" ]
+  done
+  [ "$(signal_lines)" = "4" ]
+  [ -z "$(ls -A "$STATE/correction-sessions")" ]
+}
+
+@test "error: read-only state dir with a writable correction-sessions dir fails the append silently, cap still enforced" {
+  mkdir -p "$STATE/correction-sessions"
+  chmod 555 "$STATE"
+  run --separate-stderr run_hook "that is wrong"
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ "$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')" = "$CTX" ]
+  [ ! -e "$STATE/signals.jsonl" ]
+  [ "$(cat "$STATE/correction-sessions/sess1")" = "1" ]
 }
