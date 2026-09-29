@@ -27,6 +27,9 @@ teardown() {
 count_line() { grep -cxF -- "$1" "$TARGET"; }
 backups()    { ls "$CLAUDE_DIR"/CLAUDE.md.bak-* 2>/dev/null | wc -l | tr -d ' '; }
 line_no()    { grep -nxF -- "$1" "$2" | cut -d: -f1; }
+# Octal mode, GNU (-c) or BSD (-f) stat. GNU is tried first: on GNU, `stat -f`
+# means "file system status" and prints that instead of failing.
+mode_of()    { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"; }
 
 @test "normal: no CLAUDE.md yet -> creates it with both imports, in order, inside one block" {
   rm -f "$TARGET"
@@ -103,7 +106,7 @@ line_no()    { grep -nxF -- "$1" "$2" | cut -d: -f1; }
   printf 'private\n' > "$TARGET"; chmod 600 "$TARGET"
   run bash "$SCRIPT"
   [ "$status" -eq 0 ]
-  [ "$(stat -f '%Lp' "$TARGET" 2>/dev/null || stat -c '%a' "$TARGET")" = "600" ]
+  [ "$(mode_of "$TARGET")" = "600" ]
 }
 
 @test "crlf: a CRLF file with the block gets the missing import inside it, no second block, CRs kept" {
