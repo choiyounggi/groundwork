@@ -1,6 +1,6 @@
 ---
 name: setup
-description: First-time memory-loop setup — offer identity names, create HABITS.md from the template, write an initial config, and verify the hooks respond.
+description: First-time memory-loop setup — offer identity names, create HABITS.md and OUTPUT.md from the templates, wire their imports into ~/.claude/CLAUDE.md, write an initial config, and verify the hooks respond.
 disable-model-invocation: true
 ---
 
@@ -41,20 +41,46 @@ skill explains how to make room.
   migration path for a HABITS.md that predates the two-file layout: the cases
   file gets created, the habit file is left exactly as it is. (The `habit`
   skill describes how to move the prose across.)
-- Then *suggest* (do not apply) adding an import line to the user's own
-  `~/.claude/CLAUDE.md` so the habits load into every session — show them the
-  exact line and let them add it:
-  ```
-  @groundwork/HABITS.md
-  ```
-  (The path is relative to `~/.claude/`. Never edit the user's CLAUDE.md
-  yourself.) Import **only** HABITS.md — HABITS-CASES.md and HABITS-ARCHIVE.md
-  are deliberately left out so their prose is not re-read on every request.
 
-  An unimported habit file is the quiet failure mode of this whole loop: it
-  still collects rules, and none of them ever reach a session. If the user
-  declines the import, say plainly that capture will keep running with no
-  effect, and offer to skip habit capture entirely instead.
+## 2b. OUTPUT.md
+
+A short output-style rule file — ELI5 plainness, core only, easy to scan, and
+a list of what must never be trimmed (evidence, repro commands, error text).
+Its goal is less reading time, less generation time, fewer tokens. Same rule
+as the habit files: copy the template only if it does not exist, never
+overwrite.
+
+```bash
+[ -f ~/.claude/groundwork/OUTPUT.md ] || cp "${CLAUDE_PLUGIN_ROOT}/templates/OUTPUT.md" ~/.claude/groundwork/OUTPUT.md
+```
+
+## 2c. Wire the imports into CLAUDE.md
+
+Neither file does anything until the user's own `~/.claude/CLAUDE.md` imports
+it — an unimported habit file is the quiet failure mode of this whole loop: it
+still collects rules, and none of them ever reach a session. Say what the
+script is about to do (one managed block, two `@` lines, a backup next to the
+file), then run it:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/install-claude-imports.sh"
+```
+
+It is idempotent: a line already present anywhere in the file (for instance
+one the user added by hand earlier) is not duplicated, and a second run prints
+`ok:` and writes nothing. Presence is a whole-line match, so an import quoted
+inside a code fence or comment also counts — if it prints `ok:` but the user
+says the file is not loading, look for that. Show the user its output,
+including the backup path. It follows a symlinked CLAUDE.md to the real file
+and keeps the file's mode and line endings.
+Import **only** HABITS.md and OUTPUT.md — HABITS-CASES.md and HABITS-ARCHIVE.md
+are deliberately left out so their prose is not re-read on every request; do
+not add them by hand.
+
+If the user declines the edit, say plainly that habit capture will keep
+running with no effect, and offer to skip habit capture entirely instead. To
+undo later, delete the managed block (the two `<!-- groundwork:memory-loop
+… -->` markers and the lines between them).
 
 ## 3. Config
 

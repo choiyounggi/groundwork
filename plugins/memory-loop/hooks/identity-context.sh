@@ -10,8 +10,9 @@
 #
 # Design notes (why it looks like this):
 #   - stdout of a SessionStart hook is injected as session context, so names
-#     work without ever editing the user's CLAUDE.md; uninstalling the plugin
-#     leaves no trace in user files.
+#     need no CLAUDE.md line of their own (the only CLAUDE.md edit the plugin
+#     makes is the import block that `setup` installs via
+#     scripts/install-claude-imports.sh).
 #   - Fail open: a malformed or partial identity file prints nothing and exits
 #     0. It deliberately does NOT re-offer setup — a broken file must not nag
 #     a user who already answered; the "identity" skill repairs it on demand.

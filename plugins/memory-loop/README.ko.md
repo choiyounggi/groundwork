@@ -37,7 +37,21 @@ Claude Code는 이미 메모리를 *저장*할 수 있습니다. 없는 것은 �
 ```
 
 그다음 `/memory-loop:setup`을 실행하세요 (슬래시 커맨드 전용) — identity,
-습관 파일, 설정을 안내하고 훅이 응답하는지 검증합니다.
+습관 파일, 출력 규칙 파일, 설정을 안내하고 훅이 응답하는지 검증합니다.
+
+플러그인이 `~/.claude/CLAUDE.md`를 편집하는 곳은 `setup` 하나뿐입니다. 파일 옆에
+백업을 쓴 뒤, import 두 줄이 든 관리 블록 하나를 추가합니다 —
+
+```text
+<!-- groundwork:memory-loop imports — managed by /memory-loop:setup; edit the files, not these lines -->
+@groundwork/HABITS.md
+@groundwork/OUTPUT.md
+<!-- /groundwork:memory-loop -->
+```
+
+이미 있는 줄은 중복하지 않고, 여러분의 텍스트는 그대로 둡니다(블록 앞에 개행
+하나가 더해질 수 있을 뿐). 다시 실행해도 안전합니다. 제거하려면 블록을 지우고,
+손으로 넣어둔 import 줄이 블록 밖에 있으면 그것도 함께 지우세요.
 
 ## 단일 파일 HABITS.md에서 업그레이드
 
@@ -51,7 +65,8 @@ Claude Code는 이미 메모리를 *저장*할 수 있습니다. 없는 것은 �
 2. `habit` 스킬의 마이그레이션 절차를 요청하세요 — 각 🟢/⚙️ 항목의
    `(← background: …)` 산문을 사례 파일의 `## Cnn` 섹션으로 옮기고 규칙에는
    `[Cnn]`만 남깁니다. 🛑 항목은 그대로 둡니다.
-3. CLAUDE.md의 import는 HABITS.md만 가리키게 유지합니다.
+3. CLAUDE.md 블록의 import는 HABITS.md(와 OUTPUT.md)만 유지합니다 —
+   HABITS-CASES.md, HABITS-ARCHIVE.md는 넣지 않습니다.
 
 그냥 두어도 됩니다 — 단일 파일 HABITS.md는 계속 동작합니다. 파일이
 `habitsSplitWarnBytes`를 넘으면 SessionStart 메모리 업킵 체크가 분리를 안내하며,
@@ -100,7 +115,7 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 
 | 스킬 | 용도 |
 |-------|---------|
-| `setup` *(슬래시 커맨드 전용)* | 최초 세팅 안내: identity → HABITS.md + HABITS-CASES.md → 설정 → 검증 |
+| `setup` *(슬래시 커맨드 전용)* | 최초 세팅 안내: identity → HABITS.md + HABITS-CASES.md + OUTPUT.md → CLAUDE.md import 블록 → 설정 → 검증 |
 | `identity` | 사용자/어시스턴트 이름 설정·변경·거절 |
 | `remember` | 저장 게이트: 근거 확인 → tier 확인 → 만료 확인 → 기록 |
 | `consolidate` | long-tier 메모리 **와 습관 파일**을 주기적으로 통합 — 중복 병합·모순은 최신 진실로 해소·날짜 절대화·HABITS.md를 예산 이내로 복귀 — 쓰기 전 확인을 거치고, `archived/`(메모리) 또는 `HABITS-ARCHIVE.md`(규칙)로 보내며 삭제는 하지 않음 |

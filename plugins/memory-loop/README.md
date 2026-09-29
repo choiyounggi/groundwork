@@ -37,7 +37,23 @@ Plus two things a lifecycle makes possible:
 ```
 
 Then run `/memory-loop:setup` (slash-command only) — it walks through
-identity, the habit files, and config, and verifies the hooks respond.
+identity, the habit files, the output-style file, and config, and verifies the
+hooks respond.
+
+`setup` is the one place the plugin edits your `~/.claude/CLAUDE.md`: it adds a
+single managed block with two import lines, after writing a backup next to the
+file —
+
+```text
+<!-- groundwork:memory-loop imports — managed by /memory-loop:setup; edit the files, not these lines -->
+@groundwork/HABITS.md
+@groundwork/OUTPUT.md
+<!-- /groundwork:memory-loop -->
+```
+
+It never duplicates a line you already have and leaves your own text as it is
+(at most a newline before the block). Re-running is safe. To uninstall, delete
+the block — and any import line you had added by hand outside it.
 
 ## Upgrading from a single-file HABITS.md
 
@@ -51,7 +67,8 @@ is still whatever you had. To close that gap:
 2. Ask for the `habit` skill's migration step: move each 🟢/⚙️ entry's
    `(← background: …)` prose into a `## Cnn` section in the cases file, leaving
    `[Cnn]` on the rule. 🛑 entries stay as they are.
-3. Leave your CLAUDE.md import pointing at HABITS.md only.
+3. Leave the CLAUDE.md block importing HABITS.md (and OUTPUT.md) only —
+   never HABITS-CASES.md or HABITS-ARCHIVE.md.
 
 Doing nothing is also fine: a single-file HABITS.md keeps working. The
 SessionStart memory-upkeep check will mention the split once the file
@@ -102,7 +119,7 @@ the other grows a continuous, self-correcting agent.
 
 | Skill | Purpose |
 |-------|---------|
-| `setup` *(slash-command only)* | First-time walkthrough: identity → HABITS.md + HABITS-CASES.md → config → verify |
+| `setup` *(slash-command only)* | First-time walkthrough: identity → HABITS.md + HABITS-CASES.md + OUTPUT.md → CLAUDE.md import block → config → verify |
 | `identity` | Set, change, or decline the user/assistant names |
 | `remember` | The save gate: evidence check → tier confirm → expiry confirm → write |
 | `consolidate` | Merge long-tier memory **and the habit file**, with an index pass (drift/orphans/broken links) and a staleness pass (re-verify, don't delete) — dedupe, resolve contradictions to the current truth, absolutize dates, bring HABITS.md back under budget — proposed for your confirmation before any write; discards to `archived/` (memories) or `HABITS-ARCHIVE.md` (rules), never deletes |
