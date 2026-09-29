@@ -83,10 +83,10 @@
       "source": {
         "source": "url",
         "url": "https://github.com/choiyounggi/jev-gate.git",
-        "ref": "v0.1.0"
+        "ref": "v0.2.0"
       },
       "homepage": "https://github.com/choiyounggi/jev-gate",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "tags": [
         "decision-model",
         "jev",
