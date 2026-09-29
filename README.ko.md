@@ -30,6 +30,7 @@ AI 코딩 에이전트에게 셸을 쥐여주면 *언젠가는* 반드시 `rm -r
 | **guardrails** | 안전이 기본값인 Bash 가드 — 공급망 공격(`curl \| sh`), 디스크 파괴(`dd`/`mkfs`), 포크밤 명령은 **차단(block)** 하고, `rm -rf`, force-push, `DROP`/`TRUNCATE`, `kubectl delete`, 자격증명/`.env` 접근, 클라우드 자원 삭제, 시크릿 export 앞에서는 **확인(ask)** 합니다. 여기에 시크릿이 **마스킹된** 감사 로그까지. 모든 규칙은 설정 가능합니다. |
 | **[dev-loop](https://github.com/choiyounggi/dev-loop)** | 위키에 근거한 구현 루프 **그리고 멀티 세션 오케스트레이터**. 루프는 **기계 판정 게이트가 붙은 3단계**(분석 → 설계 → 분해: 증거 기반 분석, 위키 라우팅된 결정을 fresh-context `plan-reviewer` 에이전트가 독립 리뷰)로 시맨틱 레이어 베스트프랙티스 위키에 대고 계획하고, 모든 태스크를 검증하며(TDD / PDCA / Reflexion), 실제로 배운 것으로 위키를 키워갑니다. 태스크 하나보다 큰 일이라면 `orchestrate`가 목표를 **의존 그래프**로 분해하고 각 태스크의 의존이 풀리는 순간 병렬 워커 세션을 스케줄합니다 — Orca가 설치돼 있으면 **Orca 네이티브**로(추적되는 Task/Dispatch, 이벤트 기반 `worker_done`/`ask`/`escalation` 메일, 네이티브 생존 감지), 없으면 순수 tmux로. 앞뒤로 사람의 승인 게이트 두 개가 붙습니다. |
 | **memory-loop** | 에이전트를 위한 메모리 라이프사이클 — 환각 메모리를 막는 저장 게이트, 삭제 대신 보관하는 계층형 만료, 반복되는 실수를 즉시 감지하는 교정 시그널 훅, 습관 증류 프레임(HABITS.md), 그리고 선택적인 1회성 이름 설정(어시스턴트가 자기 이름을 직접 고를 수도 있습니다). |
+| **[jev-gate](https://github.com/choiyounggi/jev-gate)** | 로컬 **판단 모델**(ollaya · winnow:e4b, 토큰 0, 약 0.75초)을 결정자가 아닌 *보조자*로 — 결정론 규칙을 먼저 두고 회색 지대만 모델에 묻는 Bash 게이트, 검증 증거 없는 "완료" 주장을 되돌리는 **정지 게이트**, 병렬 판단용 `decide` MCP 도구, 언제 모델에 넘길지 정한 스킬. 한국어 50건 측정: 위험 명령 놓침 0건, 에이전트 보고 분류 100%. |
 
 ## 설치
 
@@ -38,6 +39,7 @@ AI 코딩 에이전트에게 셸을 쥐여주면 *언젠가는* 반드시 `rm -r
 /plugin install guardrails@groundwork
 /plugin install dev-loop@groundwork
 /plugin install memory-loop@groundwork
+/plugin install jev-gate@groundwork
 ```
 
 가드만, 루프만, 메모리만 — 또는 셋 다 설치하세요.

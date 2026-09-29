@@ -71,6 +71,31 @@
         "knowledge-base",
         "claude-code"
       ]
+    },
+    {
+      "name": "jev-gate",
+      "description": "A local Jev-compatible decision model (ollaya, winnow:e4b) as an assistant for Claude Code, never the decider — a PreToolUse Bash gate (deterministic rules first, model only for the grey zone), a Stop gate that refuses done-claims without verification evidence, a `decide` MCP tool for parallel typed judgments, and a skill on when to use it. Zero tokens, ~0.75 s per judgment, every decision logged.",
+      "category": "development",
+      "author": {
+        "name": "choiyounggi",
+        "url": "https://github.com/choiyounggi"
+      },
+      "source": {
+        "source": "url",
+        "url": "https://github.com/choiyounggi/jev-gate.git",
+        "ref": "v0.1.0"
+      },
+      "homepage": "https://github.com/choiyounggi/jev-gate",
+      "version": "0.1.0",
+      "tags": [
+        "decision-model",
+        "jev",
+        "ollaya",
+        "hooks",
+        "safety",
+        "mcp",
+        "claude-code"
+      ]
     }
   ]
 }
