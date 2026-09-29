@@ -25,7 +25,9 @@ Plus three things a lifecycle makes possible:
   what must never be trimmed (evidence, repro commands, verbatim errors). The
   action-first and state-restating rules follow
   [i-have-adhd](https://github.com/ayghri/i-have-adhd); the evidence rule is
-  ours. Goal: less reading time, less generation time, fewer tokens.
+  ours. Goal: less reading time, less generation time, fewer tokens. The file
+  is yours: your rules sit above a managed block that a SessionStart hook
+  keeps in step with the template.
 
 - **HABITS.md** — a distillation frame that turns corrections and incidents
   into standing behavior (positive practices 🟢, hard lines 🛑). Capture is
@@ -84,6 +86,27 @@ SessionStart memory-upkeep check will mention the split once the file
 crosses `habitsSplitWarnBytes`, and it tells you when no cases file
 exists yet.
 
+## Upgrading OUTPUT.md (2.3.0)
+
+OUTPUT.md is still your file, but from 2.3.0 it has two parts: your own rules
+at the top and one **managed block** (between
+`<!-- groundwork:memory-loop output-style … -->` and
+`<!-- /groundwork:memory-loop output-style -->`) that mirrors the plugin
+template. The `output-template-sync.sh` SessionStart hook keeps that block
+current: when the template changes, the block is replaced and everything
+outside it is copied unchanged, with a backup written next to the file. A
+marker quoted inside a ``` code fence is your prose and is never taken for
+the block.
+
+An OUTPUT.md from before 2.3.0 has no block. On the first session after the
+upgrade: if the file is still exactly the seed `setup` copied (2.1.0 or
+2.2.0), it is replaced whole, because every line in it was ours; if you had
+edited it, your text is kept as is and the block is appended below it, so
+any rules you had kept from the old seed are now there twice — delete your
+copies, the block carries them. Either way the previous file is in the
+backup. Edit above the block, not inside it, and set
+`"syncOutputTemplate": false` in memory-loop.json to opt out.
+
 ## Upgrading from 1.x
 
 The Stop-hook learning nudge is gone; `nudgeInterval` in your config is
@@ -123,6 +146,7 @@ the other grows a continuous, self-correcting agent.
 | `habits-budget-guard.sh` | PreToolUse (Edit\|Write) | Denies a write that grows the habit file past its byte/rule budget; a write that shrinks it is always allowed, so the way out is never blocked |
 | `correction-signal.sh` | UserPromptSubmit | When the prompt looks like a correction (Korean or English keyword), records one line to `signals.jsonl` and injects one context line suggesting a habit or memory capture — capped at `correctionInjectionCap` injections per session (default 3; every match is still recorded) |
 | `tutor-due-check.sh` | SessionStart | One line when tutor items are due, naming the count and the `/memory-loop:tutor` skill; silent otherwise — no detail file needed for a single line |
+| `output-template-sync.sh` | SessionStart | Auto-merges the OUTPUT.md template: replaces only the managed block of `~/.claude/groundwork/OUTPUT.md` when the template changed (backup written first), appends the block to a pre-2.3.0 file, and prints one line saying so; silent when current or when the file does not exist yet (`setup` seeds it). `"syncOutputTemplate": false` turns it off |
 
 ## Skills
 
@@ -187,6 +211,7 @@ global overrides built-in defaults.
 | `consolidateIntervalDays` | `30` | Report when the last recorded consolidate run is older than this (`0` disables) |
 | `memoryCheckCooldownDays` | `7` | Stay silent for this long after an upkeep report (`0` reports every session) |
 | `extraMemoryDirs` | `[]` | Additional memory directories to sweep, beyond the current project's own (`~` supported) |
+| `syncOutputTemplate` | `true` | Let the SessionStart hook replace the managed block of `~/.claude/groundwork/OUTPUT.md` when the template changes (`false` disables; your own rules above the block are never touched either way) |
 
 State (identity, `signals.jsonl`, `correction-sessions/`,
 `expiry-sweep-last.md`, `staleness-last-detail.md`) lives in

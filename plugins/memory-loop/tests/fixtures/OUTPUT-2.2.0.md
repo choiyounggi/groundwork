@@ -1,14 +1,9 @@
 # OUTPUT — how to write
 
-Loaded into every session via the user's `CLAUDE.md` import. Your own rules go
-here, above the managed block, and survive plugin upgrades. The block below is
-the plugin's template: it is replaced when the template changes, so edit above
-it, not inside it.
-
-<!-- groundwork:memory-loop output-style — managed block, template {{TEMPLATE_ID}} (memory-loop {{VERSION}}); your own rules go ABOVE this line and survive upgrades; this block is replaced on upgrade -->
-Goal: less time to understand, less time to generate, fewer tokens. Nothing
-spent on words that do not change what the reader does. Shaped so a reader
-with a small working memory can act on it, not just read it.
+Loaded into every session via the user's `CLAUDE.md` import. Goal: less time
+to understand, less time to generate, fewer tokens. Nothing spent on words
+that do not change what the reader does. Shaped so a reader with a small
+working memory can act on it, not just read it.
 
 - **Applies to every token you produce.** Answers, explanations, progress
   notes, commit messages, PR bodies, code comments, HTML/Markdown documents,
@@ -47,4 +42,3 @@ with a small working memory can act on it, not just read it.
   "anything else?" or recaps. Delete hedges that carry no information; keep
   one that carries real uncertainty. Then: reading only those two lines, does
   the reader know what just happened and what to do next?
-<!-- /groundwork:memory-loop output-style -->

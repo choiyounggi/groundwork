@@ -24,7 +24,9 @@ Claude Code는 이미 메모리를 *저장*할 수 있습니다. 없는 것은 �
   몇 분"으로, 한 묶음에 보이는 항목은 최대 5개, 그리고 절대 자르지 않는 것의
   목록(증거, 재현 명령, 에러 원문). 행동 우선·상태 재진술 규칙은
   [i-have-adhd](https://github.com/ayghri/i-have-adhd)를 따랐고, 증거 규칙은
-  우리 것입니다. 목적: 읽는 시간, 생성 시간, 토큰을 모두 줄이기.
+  우리 것입니다. 목적: 읽는 시간, 생성 시간, 토큰을 모두 줄이기. 파일은 당신
+  것입니다: 당신 규칙은 관리 블록 위에 두고, 블록은 SessionStart 훅이 템플릿과
+  맞춰 둡니다.
 
 - **HABITS.md** — 교정과 사고를 상시 행동으로 바꾸는 증류 프레임 (긍정 프랙티스 🟢,
   하드 라인 🛑). 기록 전 세 개의 게이트(damage → 🛑/🟢, recurrence, generality)를
@@ -80,6 +82,24 @@ Claude Code는 이미 메모리를 *저장*할 수 있습니다. 없는 것은 �
 `habitsSplitWarnBytes`를 넘으면 SessionStart 메모리 업킵 체크가 분리를 안내하며,
 사례 파일이 아직 없으면 그 사실도 함께 알려줍니다.
 
+## OUTPUT.md 업그레이드 (2.3.0)
+
+OUTPUT.md는 여전히 당신의 파일이지만, 2.3.0부터 두 부분으로 나뉩니다: 맨 위의
+당신 규칙과, 플러그인 템플릿을 그대로 담는 **관리 블록** 하나
+(`<!-- groundwork:memory-loop output-style … -->`와
+`<!-- /groundwork:memory-loop output-style -->` 사이). `output-template-sync.sh`
+SessionStart 훅이 이 블록을 최신으로 유지합니다: 템플릿이 바뀌면 블록만
+교체하고 그 밖의 내용은 손대지 않고 복사하며, 파일 옆에 백업을 먼저 씁니다.
+``` 코드 펜스 안에 인용한 마커는 당신의 글이므로 블록으로 보지 않습니다.
+
+2.3.0 이전의 OUTPUT.md에는 블록이 없습니다. 업그레이드 후 첫 세션에: 파일이
+`setup`이 복사해 준 시드(2.1.0 또는 2.2.0) 그대로라면 통째로 교체합니다 —
+모든 줄이 우리 글이었으니까요. 당신이 편집한 파일이라면 글은 그대로 두고
+블록을 아래에 붙이므로, 옛 시드에서 남겨 둔 규칙이 두 번 있게 됩니다 — 당신
+쪽 사본을 지우세요, 블록이 그 규칙을 담습니다. 어느 쪽이든 이전 파일은 백업에
+있습니다. 블록 안이 아니라 위를 편집하고, 끄려면 memory-loop.json에
+`"syncOutputTemplate": false`를 넣으세요.
+
 ## 1.x에서 업그레이드
 
 Stop 훅 학습 넛지는 제거되었습니다. 설정의 `nudgeInterval`은 이제
@@ -118,6 +138,7 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 | `habits-budget-guard.sh` | PreToolUse (Edit\|Write) | 습관 파일을 예산(바이트/규칙 수) 너머로 키우는 쓰기를 거부 — 파일을 줄이는 쓰기는 항상 허용하므로 빠져나갈 길은 막지 않음 |
 | `correction-signal.sh` | UserPromptSubmit | 프롬프트가 교정처럼 보이면(한국어/영어 키워드) `signals.jsonl`에 한 줄을 기록하고, 습관이나 메모리 캡처를 제안하는 컨텍스트 한 줄을 주입 — 세션당 `correctionInjectionCap`(기본 3)으로 상한, 상한을 넘어도 기록은 계속됨 |
 | `tutor-due-check.sh` | SessionStart | 복습 대기 항목이 있을 때 개수와 `/memory-loop:tutor` 스킬을 담은 한 줄, 아니면 침묵 — 한 줄이라 별도 상세 파일은 없음 |
+| `output-template-sync.sh` | SessionStart | OUTPUT.md 템플릿 자동 병합: 템플릿이 바뀌면 `~/.claude/groundwork/OUTPUT.md`의 관리 블록만 교체하고(먼저 백업), 2.3.0 이전 파일에는 블록을 뒤에 붙인 뒤 한 줄로 알림. 최신이거나 파일이 아직 없으면(`setup`이 만듦) 침묵. `"syncOutputTemplate": false`로 끔 |
 
 ## 스킬
 
@@ -181,6 +202,7 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 | `consolidateIntervalDays` | `30` | 마지막 consolidate 실행이 이보다 오래됐으면 보고 (`0`이면 비활성) |
 | `memoryCheckCooldownDays` | `7` | 업킵 보고 후 이 기간 동안 침묵 (`0`이면 매 세션 보고) |
 | `extraMemoryDirs` | `[]` | 현재 프로젝트의 메모리 디렉토리 외에 추가로 스윕할 디렉토리 (`~` 지원) |
+| `syncOutputTemplate` | `true` | 템플릿이 바뀌면 SessionStart 훅이 `~/.claude/groundwork/OUTPUT.md`의 관리 블록을 교체하도록 허용 (`false`면 비활성; 블록 위의 내 규칙은 어느 쪽이든 건드리지 않음) |
 
 상태(identity, `signals.jsonl`, `correction-sessions/`,
 `expiry-sweep-last.md`, `staleness-last-detail.md`)는
