@@ -7,6 +7,7 @@
   "memoryIndexMaxLines": 120,
   "consolidateIntervalDays": 30,
   "memoryCheckCooldownDays": 7,
+  "syncOutputTemplate": true,
   "extraMemoryDirs": [
     "~/my-notes/memory"
   ]

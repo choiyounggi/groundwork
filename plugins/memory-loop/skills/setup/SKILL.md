@@ -44,15 +44,27 @@ skill explains how to make room.
 
 ## 2b. OUTPUT.md
 
-A short output-style rule file — ELI5 plainness, core only, easy to scan, and
-a list of what must never be trimmed (evidence, repro commands, error text).
-Its goal is less reading time, less generation time, fewer tokens. Same rule
-as the habit files: copy the template only if it does not exist, never
-overwrite.
+A short output-style rule file — ELI5 plainness, next action first, core
+only, easy to scan, and a list of what must never be trimmed (evidence, repro
+commands, error text). Its goal is less reading time, less generation time,
+fewer tokens.
+
+Unlike the habit files, this one has two parts: the user's own rules at the
+top, and one **managed block** that mirrors the plugin template. The sync
+script creates the file if it is missing, and otherwise replaces only the
+managed block (a file from before 2.3.0 has no block: the user's text is kept
+and the block is appended). It writes a backup next to the file before any
+change and prints one line saying what it did:
 
 ```bash
-[ -f ~/.claude/groundwork/OUTPUT.md ] || cp "${CLAUDE_PLUGIN_ROOT}/templates/OUTPUT.md" ~/.claude/groundwork/OUTPUT.md
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/sync-output-template.sh"
 ```
+
+From now on the `output-template-sync.sh` SessionStart hook runs the same
+script every session, so a template change lands automatically; the user's
+rules above the block are never touched. Tell the user: edit above the block,
+not inside it, and set `"syncOutputTemplate": false` in memory-loop.json to
+opt out.
 
 ## 2c. Wire the imports into CLAUDE.md
 

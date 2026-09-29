@@ -1,5 +1,5 @@
 {
-  "description": "memory-loop hooks — identity context, memory expiry sweep and a memory-upkeep check (SessionStart), a budget guard on the always-loaded habit file (PreToolUse), and a correction-signal hook that logs likely corrections for the consolidate pass (UserPromptSubmit).",
+  "description": "memory-loop hooks — identity context, memory expiry sweep, a memory-upkeep check and an OUTPUT.md template auto-merge (SessionStart), a budget guard on the always-loaded habit file (PreToolUse), and a correction-signal hook that logs likely corrections for the consolidate pass (UserPromptSubmit).",
   "hooks": {
     "SessionStart": [
       {
@@ -7,6 +7,10 @@
           {
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/identity-context.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/output-template-sync.sh"
           },
           {
             "type": "command",
