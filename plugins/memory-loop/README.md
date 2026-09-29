@@ -16,7 +16,16 @@ correction signal   save gate +            expiry sweep →
                     consolidate
 ```
 
-Plus two things a lifecycle makes possible:
+Plus three things a lifecycle makes possible:
+
+- **OUTPUT.md** — an always-loaded output-style rule file: explain like I'm
+  five, lead with the next action, number multi-step work and restate where
+  you are, one next step at the end or nothing, results as "what now works /
+  cause + fix / minutes", at most five visible items per group, and a list of
+  what must never be trimmed (evidence, repro commands, verbatim errors). The
+  action-first and state-restating rules follow
+  [i-have-adhd](https://github.com/ayghri/i-have-adhd); the evidence rule is
+  ours. Goal: less reading time, less generation time, fewer tokens.
 
 - **HABITS.md** — a distillation frame that turns corrections and incidents
   into standing behavior (positive practices 🟢, hard lines 🛑). Capture is
