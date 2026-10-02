@@ -9,7 +9,7 @@
   <img src="docs/assets/hero.png" alt="groundwork — a safe-by-default guard for your coding agent: git push and npm build are allowed, rm -rf and curl | sh are blocked, even with permission prompts off" width="820">
 </p>
 
-**A safe-by-default, batteries-included Claude Code harness — starter pack.**
+**A Claude Code harness in four plugins — guardrails that hold in yolo mode, Orca-native orchestration grounded in an LLM wiki, a memory loop that turns your corrections into standing rules, and a Jev-style judgment gate.**
 
 Give an AI coding agent a shell and it *will*, eventually, try to run `rm -rf`,
 pipe a script from the internet straight into `sh`, force-push over history, or
@@ -17,8 +17,9 @@ pipe a script from the internet straight into `sh`, force-push over history, or
 in one install — so the agent stays fast, and stays safe. It even holds in
 `--dangerously-skip-permissions` (yolo) mode: a `deny` still stops the command.
 
-This marketplace bundles four plugins — safety, quality **and orchestration**,
-continuity, and **judgment** — you can install together or à la carte:
+A harness is everything around the model: what it may run, how it plans and
+checks its work, what it remembers, and who gets to say "done". groundwork ships
+one plugin for each — install all four, or only the one you need:
 
 <p align="center">
   <img src="docs/assets/diagram.png" alt="groundwork architecture: Claude Code / AI agent runs through groundwork's four plugins — guardrails, dev-loop, memory-loop, jev-gate" width="860">
@@ -29,16 +30,9 @@ continuity, and **judgment** — you can install together or à la carte:
 | You want… | Install | One line |
 |-----------|---------|----------|
 | the agent to stop before `curl \| sh`, `rm -rf`, force-push, `DROP` | `guardrails` | a local Bash guard that holds even in yolo mode |
-| plans grounded in a wiki, tests first, parallel workers | `dev-loop` | a verification loop and an **Orca-native** multi-session orchestrator |
-| memories that are checked before saving and habits that stick | `memory-loop` | a memory lifecycle plus **HABITS.md** and a lean **OUTPUT.md** |
+| one goal split across parallel sessions, each planning from an LLM wiki | `dev-loop` | an **Orca-native orchestrator** plus a wiki-grounded verification loop |
+| an agent that remembers *your* way of working and stops repeating a mistake | `memory-loop` | a memory lifecycle plus **HABITS.md** and a lean **OUTPUT.md** |
 | "done" to mean *proven* done, at zero token cost | `jev-gate` | a local **Jev-style decision model** that judges, never decides |
-
-| Plugin | What it gives you |
-|--------|-------------------|
-| **guardrails** | A safe-by-default Bash guard — **blocks** supply-chain (`curl \| sh`), disk-destroying (`dd`/`mkfs`), and fork-bomb commands; **asks** before `rm -rf`, force-push, `DROP`/`TRUNCATE`, `kubectl delete`, credential/`.env` access, cloud-resource deletion, and secret exports. Plus a **redacted** audit log. Every rule is configurable. |
-| **[dev-loop](https://github.com/choiyounggi/dev-loop)** | A wiki-grounded implementation loop **and a multi-session orchestrator**. The loop plans through **three mechanically gated phases** (Analyze → Design → Decompose: evidence-backed analysis, wiki-routed decisions independently reviewed by a fresh-context `plan-reviewer` agent) against a semantic-layer best-practices wiki, verifies every task (TDD / PDCA / Reflexion), and grows the wiki from what you actually learn. Bigger than one task? `orchestrate` decomposes the goal into a **dependency graph** and schedules parallel worker sessions the moment their dependencies clear — **Orca-native** when Orca is installed (tracked Task/Dispatch provenance, event-driven `worker_done`/`ask`/`escalation` mail, native liveness), plain tmux otherwise — with two human gates around it. |
-| **memory-loop** | A memory lifecycle for your agent — a save gate against hallucinated memories, tiered expiry with archive-not-delete, a correction-signal hook that flags repeated mistakes as they happen, and an optional one-time identity setup (the assistant can even pick its own name). Ships two always-loaded rule files: **HABITS.md**, a habit-distillation frame with a hard **8000-byte / 24-rule budget** enforced at the write, and **OUTPUT.md**, an ELI5-plain, evidence-preserving output style that cuts reading time and tokens on every reply. |
-| **[jev-gate](https://github.com/choiyounggi/jev-gate)** | A local **decision model** in the style of [Jev](https://docs.typesafe.ai) (TypeSafe's "System One" model that returns typed choices with probabilities instead of prose) — served by ollaya · winnow:e4b, **zero tokens, ~0.75 s**, as an *assistant*, never the decider. A Bash gate that puts deterministic rules first and asks the model only about the grey zone, a **Stop gate** that refuses "done" claims with no verification evidence, a `decide` MCP tool for parallel typed judgments, and a skill on when to hand a judgment to the model. Measured on 50 Korean cases: 0 dangerous commands missed, 100% on agent-report classification. |
 
 ## Install
 
@@ -51,6 +45,103 @@ continuity, and **judgment** — you can install together or à la carte:
 ```
 
 Install just the guard, just the loop, just the memory, just the judge — or all four.
+
+## The four plugins
+
+### guardrails — the net under yolo mode
+
+Give an agent a shell and one day it runs the wrong command. guardrails checks
+every Bash command on your machine before it runs.
+
+- **Blocks** supply-chain (`curl | sh`), disk-destroying (`dd`/`mkfs`) and
+  fork-bomb commands.
+- **Asks** before `rm -rf`, force-push, `DROP`/`TRUNCATE`, `kubectl delete`,
+  credential/`.env` access, cloud-resource deletion and secret exports.
+- **Holds in `--dangerously-skip-permissions`** — a `deny` still stops the
+  command when permission prompts are off.
+- **Yours to tune** — every rule is `off` / `ask` / `block`, per repo or global,
+  with a **redacted** audit log of every decision.
+
+Try it: `/guardrails:self-test` feeds real dangerous commands through the guard
+and shows each decision, without executing any of them.
+
+### [dev-loop](https://github.com/choiyounggi/dev-loop) — Orca-native orchestration on an LLM wiki
+
+Hand it one goal in plain language. It splits the goal into tasks, runs them in
+parallel sessions, and reviews and tests each one. Two human approval gates
+bracket the run: the task split, and the merge.
+
+- **Orchestration** — `orchestrate` turns the goal into a **dependency graph**
+  and starts each worker session the moment its dependencies clear. No waiting
+  for a whole wave to finish.
+- **Orca-native** — with the Orca CLI installed, every task phase is a tracked
+  Task + Dispatch, and the coordinator wakes on pushed `worker_done` /
+  `escalation` mail instead of polling. A stuck worker is caught, not waited
+  out. No Orca? The same run works on plain tmux.
+- **An LLM wiki as the source of truth** — a bundled best-practices wiki, 300+
+  pages across 10 domains (backend, databases, security, testing, …). Planning
+  runs through **three mechanically gated phases** (Analyze → Design →
+  Decompose): every design decision names the wiki page behind it, and a
+  fresh-context `plan-reviewer` agent reviews the design independently.
+- **Verification on every task** — tests first (TDD / PDCA / Reflexion), then an
+  independent test-quality audit, so the session that wrote the code never
+  grades its own tests.
+- **A wiki that grows** — lessons verified in your sessions are queued, and
+  `knowledge-flush` turns them into a reviewed wiki PR.
+
+Try it: `/dev-loop:orchestrate <your goal>`, or `/dev-loop:loop-implement` for a
+single task. Details:
+[Built for orchestration](#built-for-orchestration--orca-native-tmux-fallback).
+
+### memory-loop — a memory shaped to you, and mistakes that stay fixed
+
+Claude Code can store memories. It cannot tell a checked fact from a guess, it
+never throws a note away, and it forgets your correction by the next session.
+memory-loop adds the missing lifecycle.
+
+- **Corrections become standing rules** — say "no, that's wrong" and a hook
+  flags it in the same turn (it records a label, never your prompt text).
+  `/memory-loop:habit` distills the lesson into **HABITS.md**, which is loaded
+  on every request from then on.
+- **Only lessons that earn their place** — a habit must pass three gates
+  (damage, recurrence, generality), and the file has a hard **8000-byte /
+  24-rule budget** enforced at the write. Adding a rule means merging or
+  retiring one, so the file stays short enough to be followed.
+- **No made-up memories** — a save gate confirms the tier and the expiry date
+  with you before anything is written.
+- **Memory that stays small** — short-tier notes expire into an archive (never
+  deleted), and `/memory-loop:consolidate` proposes merges and removes
+  duplicates for you to confirm.
+- **Answers in the shape you read** — **OUTPUT.md** is an always-loaded,
+  ELI5-plain output style: conclusion first, evidence never trimmed. It cuts
+  reading time and tokens on every reply, and the file is yours to edit.
+- **Names** — an optional one-time setup for your name and the assistant's (it
+  can even pick its own).
+
+Everything is a plain local file you can read and edit. Try it:
+`/memory-loop:setup`.
+
+### [jev-gate](https://github.com/choiyounggi/jev-gate) — judgment without generation
+
+An LLM is slow and wordy at yes/no questions. A [Jev](https://docs.typesafe.ai)-style
+decision model (TypeSafe's "System One" model) returns a typed choice with a
+probability and no prose. jev-gate runs one locally as an *assistant*, never the
+decider.
+
+- **Local and fast** — served by ollaya · winnow:e4b: **zero tokens, ~0.75 s**
+  per judgment.
+- **Bash gate** — deterministic rules first, the model only for the grey zone.
+  The model can never override the hard-deny list.
+- **Stop gate** — a "done" claim with no verification evidence is bounced once,
+  with the reason.
+- **`decide` MCP tool** — parallel typed judgments (classify, rank, yes/no) on
+  options the agent lists.
+- **Measured and logged** — on 50 Korean cases: 0 dangerous commands missed,
+  100% on agent-report classification. Everything fails open, and every
+  judgment is logged so you can re-tune the thresholds from your own data.
+
+Try it: `/jev-gate:setup`. Details:
+[the Jev pattern](#judgment-without-generation--the-jev-pattern).
 
 ## Why not just a starter template?
 
