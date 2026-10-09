@@ -15,7 +15,7 @@
 #   - bash 3.2 compatible: no associative arrays, no ${var,,}.
 set -uo pipefail
 
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-${BASH_SOURCE[0]%/hooks/*}}"
 SCHEDULER="$PLUGIN_ROOT/skills/tutor/scripts/tutor-schedule.sh"
 
 [ -f "$SCHEDULER" ] || exit 0

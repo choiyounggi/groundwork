@@ -115,7 +115,7 @@ run_guard() {
 
 @test "escalation record redacts secrets in the command" {
   local esc="$BATS_TEST_TMPDIR/esc3"
-  local tok='ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'
+  local tok; tok="ghp_$(printf 'x%.0s' {1..36})"
   export GROUNDWORK_ESCALATION_DIR="$esc"
   run run_guard "git push --force https://$tok@github.com/x/y"
   run cat "$esc"/*.json

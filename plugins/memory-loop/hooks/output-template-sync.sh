@@ -38,7 +38,7 @@ for cfg in "${CWD}/.groundwork/memory-loop.json" "${HOME}/.claude/groundwork/mem
   esac
 done
 
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-${BASH_SOURCE[0]%/hooks/*}}"
 out=$(bash "${PLUGIN_ROOT}/scripts/sync-output-template.sh" "$TARGET" 2>&1)
 rc=$?
 first=$(printf '%s\n' "$out" | head -1)
