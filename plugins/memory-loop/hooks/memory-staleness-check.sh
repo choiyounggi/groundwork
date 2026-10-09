@@ -321,7 +321,7 @@ if [ -f "$HABITS_FILE" ]; then
     else
       MOVE_TO=$(printf 'into a new %s beside it (this habit file predates the two-file layout — run /memory-loop:setup to drop in the template without touching %s), leaving a [Cnn] pointer on each rule' "$CASES_NAME" "$HABITS_NAME")
     fi
-    SPLIT_TEXT=$(printf '%s is %s bytes, past the %s-byte split threshold. It loads on every request, so background prose sitting there costs tokens on every turn. Move the (<- background: ...) text out of the 🟢 Practices entries %s (the "habit" skill has the layout). Keep 🛑 hard lines inline — for a prohibition the origin is the judgment.\n' "$HABITS_NAME" "$H_SZ" "$SPLIT_WARN" "$MOVE_TO")
+    SPLIT_TEXT=$(printf '%s is %s bytes, past the %s-byte split threshold. It loads on every request, so background prose sitting there costs tokens on every turn. Move the (<- background: …) text out of the 🟢 Practices entries %s (the "habit" skill has the layout). Keep 🛑 hard lines inline — for a prohibition the origin is the judgment.\n' "$HABITS_NAME" "$H_SZ" "$SPLIT_WARN" "$MOVE_TO")
     # $(...) strips each text's trailing newline, so join with one explicitly.
     if [ -n "$habit_detail" ]; then
       habit_detail=$(printf '%s\n%s' "$habit_detail" "$SPLIT_TEXT")

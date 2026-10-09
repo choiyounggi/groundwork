@@ -7,7 +7,7 @@ setup() {
 }
 
 @test "re-masks a leaked token in .summary with --apply (and backs up)" {
-  tok='ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'
+  tok="ghp_$(printf 'x%.0s' {1..36})"
   jq -cn --arg s "git push https://$tok@x/y" \
     '{ts:"t",tool:"Bash",summary:$s,error:false,cwd:"/x"}' > "$LOG"
   run bash "$RM" --apply "$LOG"
@@ -19,7 +19,7 @@ setup() {
 }
 
 @test "dry-run leaves the file unchanged and prints no raw secret" {
-  tok='ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'
+  tok="ghp_$(printf 'x%.0s' {1..36})"
   jq -cn --arg s "export TOKEN=$tok" '{summary:$s}' > "$LOG"
   before=$(cat "$LOG")
   run bash "$RM" "$LOG"

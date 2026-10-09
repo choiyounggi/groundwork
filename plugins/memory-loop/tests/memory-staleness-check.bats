@@ -490,7 +490,7 @@ days_back() { date -v-"$1"d +%Y-%m-%d 2>/dev/null || date -d "$1 days ago" +%Y-%
   one_line
   [ "$output" = "memory upkeep: habits over split threshold — details: $DETAIL; run \"/memory-loop:consolidate\"." ]
   in_detail "HABITS.md is 201 bytes, past the 200-byte split threshold."
-  in_detail "(<- background: ...)"
+  in_detail "(<- background: …)"
   in_detail "into a new HABITS-CASES.md beside it"
   in_detail "/memory-loop:setup"
   in_detail "Keep 🛑 hard lines inline"

@@ -30,7 +30,7 @@
 # bash 3.2 compatible.
 set -uo pipefail
 
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-${BASH_SOURCE[0]%/scripts/*}}"
 TEMPLATE="${OUTPUT_TEMPLATE:-${PLUGIN_ROOT}/templates/OUTPUT.md}"
 OPEN_PREFIX='<!-- groundwork:memory-loop output-style'
 CLOSE='<!-- /groundwork:memory-loop output-style -->'

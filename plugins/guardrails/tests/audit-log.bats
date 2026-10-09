@@ -14,7 +14,7 @@ setup() {
 }
 
 @test "redacts a GitHub token" {
-  tok="ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"
+  tok="ghp_$(printf 'x%.0s' {1..36})"
   jq -cn --arg c "git push https://$tok@github.com/x/y" \
     '{tool_name:"Bash",tool_input:{command:$c}}' | bash "$AUDIT"
   run cat "$GROUNDWORK_AUDIT_LOG"
