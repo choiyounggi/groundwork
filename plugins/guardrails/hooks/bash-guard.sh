@@ -14,13 +14,16 @@
 # base is ignored — a project can no longer turn a built-in ask/block off.
 # GROUNDWORK_GUARDRAILS_CONFIG names a config set by the process that launched
 # the session (e.g. dev-loop's orchestrate) — not the project's own files, so —
-# like the global file — it may loosen. Ignored if unset, empty, a relative
-# path, missing, not valid JSON, or (after resolving symlinks) inside the
-# current worktree, inside the main worktree root, inside $PWD when not in a
-# git repo, or the same file as the repo config — anywhere a command running
-# IN the project could rewrite it and grant itself a loosened rule. The
-# override must live outside every repo it could apply to (see README
-# "Configure" / "Orchestration / worker sessions").
+# like the global file — it may loosen. Trust is an ALLOWLIST, not a denylist
+# of places to reject: the only thing that makes a file trusted is its fully
+# resolved path (symlinks followed) sitting strictly inside the fully resolved
+# ~/.claude/groundwork/overrides/ (mode 700 — only the user's own account can
+# write there). Anything else — a relative path, a missing file, a directory,
+# invalid JSON, or a resolved path outside that one directory — is ignored,
+# exactly as if the env var were unset. This needs no notion of "the project"
+# (no git calls, no worktree/submodule/nested-repo reasoning), so there is no
+# boundary for a missing `git`, a nested checkout, or GIT_DIR/GIT_WORK_TREE to
+# slip past (see README "Configure" / "Orchestration / worker sessions").
 # allowPaths is read from the override file, else the global file; the repo
 # file's allowPaths is ignored entirely (it would only ever loosen
 # worktree_escape). extraAsk/extraBlock are read from all three files —
@@ -81,9 +84,14 @@ REPO_CFG=$(find_repo_cfg)
 # ---- Canonical path resolution (portable: macOS bash 3.2 + Linux; no
 # dependency on GNU `readlink -f` or `realpath`, neither guaranteed on macOS).
 # Follows symlinks for the file itself with a bounded loop, then canonicalizes
-# the containing directory with `cd -P`+`pwd -P` (which also resolves any
-# symlinked parent directory). Prints nothing and fails if resolution cannot
-# complete (missing target, loop, permission).
+# the containing directory with `cd -P` + the EXTERNAL `/bin/pwd -P` binary —
+# not bash's own `pwd -P` builtin. On a case-insensitive filesystem (APFS's
+# default) the builtin can hand back the case you `cd`'d in with instead of
+# asking the kernel for the on-disk case, which would let two spellings of the
+# same real directory compare unequal (or, worse, let an in-tree path spelled
+# differently slip past a containment check). A fresh external-process
+# getcwd() always returns the true on-disk case. Prints nothing and fails if
+# resolution cannot complete (missing target, loop, permission).
 resolve_abs_path() {
   local p="$1" dir base target loops=0
   [ -n "$p" ] || return 1
@@ -97,8 +105,15 @@ resolve_abs_path() {
     esac
   done
   dir=$(dirname "$p"); base=$(basename "$p")
-  dir=$(cd -P "$dir" 2>/dev/null && pwd -P) || return 1
+  dir=$(cd -P "$dir" 2>/dev/null && /bin/pwd -P) || return 1
   printf '%s/%s' "$dir" "$base"
+}
+
+# Canonicalize a directory the same way (case-correct, symlinks resolved).
+resolve_abs_dir() {
+  local d="$1"
+  [ -n "$d" ] || return 1
+  (cd -P "$d" 2>/dev/null && /bin/pwd -P)
 }
 
 # $1 = resolved absolute path, $2 = resolved absolute boundary directory.
@@ -111,55 +126,27 @@ path_is_inside() {
   esac
 }
 
-# The project-tree boundaries an override must live OUTSIDE of. Inside any of
-# these, a command running in the project (which this guard is supposed to be
-# restraining) could simply rewrite the override file itself and hand itself a
-# loosened rule — the file is not protected by this hook, only trusted by it.
-# So: outside the current worktree's toplevel, outside the main worktree root
-# (for a linked worktree, e.g. a dev-loop worker), and outside $PWD when not in
-# a git repo at all.
-override_is_in_project_tree() {
-  # $1 = resolved absolute override path
-  local rp="$1" wt_top common main_root pwd_rp
-  wt_top=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
-  if [ -z "$wt_top" ]; then
-    pwd_rp=$(cd -P "$PWD" 2>/dev/null && pwd -P) || pwd_rp="$PWD"
-    path_is_inside "$rp" "$pwd_rp" && return 0
-    return 1
-  fi
-  wt_top=$(cd -P "$wt_top" 2>/dev/null && pwd -P) || return 1
-  path_is_inside "$rp" "$wt_top" && return 0
-  common=$(git rev-parse --git-common-dir 2>/dev/null || echo "")
-  case "$common" in
-    */.git) main_root=$(cd -P "$(dirname "$common")" 2>/dev/null && pwd -P || echo "") ;;
-    *)      main_root="" ;;
-  esac
-  [ -n "$main_root" ] && path_is_inside "$rp" "$main_root"
-}
+# Trusted override: the ONLY config a project cannot ship or rewrite, because
+# it must live strictly inside ~/.claude/groundwork/overrides/ (mode 700 — see
+# README "Configure"), a directory only the user's own account can write to.
+# Validated once; anything wrong with it collapses to "" (treated as unset)
+# rather than erroring, since this hook must never crash. If the overrides
+# directory itself does not exist, nothing is trusted — there is no implicit
+# fallback location.
+OVERRIDES_DIR_RESOLVED=$(resolve_abs_dir "${HOME}/.claude/groundwork/overrides") || OVERRIDES_DIR_RESOLVED=""
 
-# Trusted override: a path named by the process that launched this session (an
-# orchestrator) — not the project's own files, so it is trusted to loosen, same
-# as the global file. Validated once; anything wrong with it collapses to ""
-# (treated as unset) rather than erroring, since this hook must never crash.
-# Trust requires the override's CANONICAL path (symlinks resolved) to sit
-# outside the project tree (see override_is_in_project_tree) and to not be
-# REPO_CFG itself — otherwise a command running inside the project could
-# rewrite the "trusted" file and loosen its own guard.
 resolve_override_cfg() {
-  local p="${GROUNDWORK_GUARDRAILS_CONFIG:-}" rp repo_rp
+  local p="${GROUNDWORK_GUARDRAILS_CONFIG:-}" rp
   [ -n "$p" ] || return 0
+  [ -n "$OVERRIDES_DIR_RESOLVED" ] || return 0
   case "$p" in
     /*) ;;
     *) return 0 ;;  # relative path — ignored
   esac
-  [ -f "$p" ] || return 0
+  [ -f "$p" ] || return 0  # missing, or a directory — ignored
   jq empty "$p" >/dev/null 2>&1 || return 0  # not valid JSON — ignored
   rp=$(resolve_abs_path "$p") || return 0
-  if [ -n "$REPO_CFG" ]; then
-    repo_rp=$(resolve_abs_path "$REPO_CFG" 2>/dev/null) || repo_rp=""
-    [ -n "$repo_rp" ] && [ "$rp" = "$repo_rp" ] && return 0  # same file as REPO_CFG — ignored
-  fi
-  override_is_in_project_tree "$rp" && return 0  # inside the project — ignored
+  path_is_inside "$rp" "$OVERRIDES_DIR_RESOLVED" || return 0  # not inside the allowlisted dir — ignored
   printf '%s' "$p"
 }
 OVERRIDE_CFG=$(resolve_override_cfg)
