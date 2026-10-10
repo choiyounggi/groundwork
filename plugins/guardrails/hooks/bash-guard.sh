@@ -13,9 +13,14 @@
 # (ask->block, off->ask/block); a repo mode that is not strictly higher than
 # base is ignored — a project can no longer turn a built-in ask/block off.
 # GROUNDWORK_GUARDRAILS_CONFIG names a config set by the process that launched
-# the session (e.g. dev-loop's orchestrate, for one worker's worktree config) —
-# not the project's own files, so — like the global file — it may loosen.
-# Ignored if unset, empty, a relative path, missing, or not valid JSON.
+# the session (e.g. dev-loop's orchestrate) — not the project's own files, so —
+# like the global file — it may loosen. Ignored if unset, empty, a relative
+# path, missing, not valid JSON, or (after resolving symlinks) inside the
+# current worktree, inside the main worktree root, inside $PWD when not in a
+# git repo, or the same file as the repo config — anywhere a command running
+# IN the project could rewrite it and grant itself a loosened rule. The
+# override must live outside every repo it could apply to (see README
+# "Configure" / "Orchestration / worker sessions").
 # allowPaths is read from the override file, else the global file; the repo
 # file's allowPaths is ignored entirely (it would only ever loosen
 # worktree_escape). extraAsk/extraBlock are read from all three files —
@@ -47,23 +52,6 @@ GUARD_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)" || GUARD_DIR="$(dirnam
 
 GLOBAL_CFG="${HOME}/.claude/groundwork/guardrails.json"
 
-# Trusted override: a path named by the process that launched this session (an
-# orchestrator) — not the project's own files, so it is trusted to loosen, same
-# as the global file. Validated once; anything wrong with it collapses to ""
-# (treated as unset) rather than erroring, since this hook must never crash.
-resolve_override_cfg() {
-  local p="${GROUNDWORK_GUARDRAILS_CONFIG:-}"
-  [ -n "$p" ] || return 0
-  case "$p" in
-    /*) ;;
-    *) return 0 ;;  # relative path — ignored
-  esac
-  [ -f "$p" ] || return 0
-  jq empty "$p" >/dev/null 2>&1 || return 0  # not valid JSON — ignored
-  printf '%s' "$p"
-}
-OVERRIDE_CFG=$(resolve_override_cfg)
-
 # Repo config: the nearest .groundwork/guardrails.json at or above $PWD, not past
 # the git toplevel. A worker that cd'd into a subdirectory still finds its
 # worktree config (discovery is not limited to the literal $PWD).
@@ -89,6 +77,92 @@ find_repo_cfg() {
   return 0
 }
 REPO_CFG=$(find_repo_cfg)
+
+# ---- Canonical path resolution (portable: macOS bash 3.2 + Linux; no
+# dependency on GNU `readlink -f` or `realpath`, neither guaranteed on macOS).
+# Follows symlinks for the file itself with a bounded loop, then canonicalizes
+# the containing directory with `cd -P`+`pwd -P` (which also resolves any
+# symlinked parent directory). Prints nothing and fails if resolution cannot
+# complete (missing target, loop, permission).
+resolve_abs_path() {
+  local p="$1" dir base target loops=0
+  [ -n "$p" ] || return 1
+  while [ -L "$p" ]; do
+    loops=$((loops + 1))
+    [ "$loops" -le 40 ] || return 1  # symlink loop guard
+    target=$(readlink "$p") || return 1
+    case "$target" in
+      /*) p="$target" ;;
+      *)  p="$(dirname "$p")/$target" ;;
+    esac
+  done
+  dir=$(dirname "$p"); base=$(basename "$p")
+  dir=$(cd -P "$dir" 2>/dev/null && pwd -P) || return 1
+  printf '%s/%s' "$dir" "$base"
+}
+
+# $1 = resolved absolute path, $2 = resolved absolute boundary directory.
+path_is_inside() {
+  local p="$1" b="$2"
+  [ -n "$b" ] || return 1
+  case "$p" in
+    "$b"|"$b"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# The project-tree boundaries an override must live OUTSIDE of. Inside any of
+# these, a command running in the project (which this guard is supposed to be
+# restraining) could simply rewrite the override file itself and hand itself a
+# loosened rule — the file is not protected by this hook, only trusted by it.
+# So: outside the current worktree's toplevel, outside the main worktree root
+# (for a linked worktree, e.g. a dev-loop worker), and outside $PWD when not in
+# a git repo at all.
+override_is_in_project_tree() {
+  # $1 = resolved absolute override path
+  local rp="$1" wt_top common main_root pwd_rp
+  wt_top=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+  if [ -z "$wt_top" ]; then
+    pwd_rp=$(cd -P "$PWD" 2>/dev/null && pwd -P) || pwd_rp="$PWD"
+    path_is_inside "$rp" "$pwd_rp" && return 0
+    return 1
+  fi
+  wt_top=$(cd -P "$wt_top" 2>/dev/null && pwd -P) || return 1
+  path_is_inside "$rp" "$wt_top" && return 0
+  common=$(git rev-parse --git-common-dir 2>/dev/null || echo "")
+  case "$common" in
+    */.git) main_root=$(cd -P "$(dirname "$common")" 2>/dev/null && pwd -P || echo "") ;;
+    *)      main_root="" ;;
+  esac
+  [ -n "$main_root" ] && path_is_inside "$rp" "$main_root"
+}
+
+# Trusted override: a path named by the process that launched this session (an
+# orchestrator) — not the project's own files, so it is trusted to loosen, same
+# as the global file. Validated once; anything wrong with it collapses to ""
+# (treated as unset) rather than erroring, since this hook must never crash.
+# Trust requires the override's CANONICAL path (symlinks resolved) to sit
+# outside the project tree (see override_is_in_project_tree) and to not be
+# REPO_CFG itself — otherwise a command running inside the project could
+# rewrite the "trusted" file and loosen its own guard.
+resolve_override_cfg() {
+  local p="${GROUNDWORK_GUARDRAILS_CONFIG:-}" rp repo_rp
+  [ -n "$p" ] || return 0
+  case "$p" in
+    /*) ;;
+    *) return 0 ;;  # relative path — ignored
+  esac
+  [ -f "$p" ] || return 0
+  jq empty "$p" >/dev/null 2>&1 || return 0  # not valid JSON — ignored
+  rp=$(resolve_abs_path "$p") || return 0
+  if [ -n "$REPO_CFG" ]; then
+    repo_rp=$(resolve_abs_path "$REPO_CFG" 2>/dev/null) || repo_rp=""
+    [ -n "$repo_rp" ] && [ "$rp" = "$repo_rp" ] && return 0  # same file as REPO_CFG — ignored
+  fi
+  override_is_in_project_tree "$rp" && return 0  # inside the project — ignored
+  printf '%s' "$p"
+}
+OVERRIDE_CFG=$(resolve_override_cfg)
 
 INPUT=$(cat)
 CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
