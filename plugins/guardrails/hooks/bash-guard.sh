@@ -53,7 +53,10 @@ GUARD_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)" || GUARD_DIR="$(dirnam
 # shellcheck source=/dev/null
 . "$GUARD_DIR/redact.sh"
 
-GLOBAL_CFG="${HOME}/.claude/groundwork/guardrails.json"
+# An unset or empty HOME means "no global file and no overrides dir" — the
+# built-in defaults still apply. Referencing ${HOME} bare under `set -u` would
+# crash the hook, and a crash prints nothing, which reads as allow.
+GLOBAL_CFG="${HOME:+${HOME}/.claude/groundwork/guardrails.json}"
 
 # Repo config: the nearest .groundwork/guardrails.json at or above $PWD, not past
 # the git toplevel. A worker that cd'd into a subdirectory still finds its
@@ -133,7 +136,10 @@ path_is_inside() {
 # rather than erroring, since this hook must never crash. If the overrides
 # directory itself does not exist, nothing is trusted — there is no implicit
 # fallback location.
-OVERRIDES_DIR_RESOLVED=$(resolve_abs_dir "${HOME}/.claude/groundwork/overrides") || OVERRIDES_DIR_RESOLVED=""
+OVERRIDES_DIR_RESOLVED=""
+if [ -n "${HOME:-}" ]; then
+  OVERRIDES_DIR_RESOLVED=$(resolve_abs_dir "${HOME}/.claude/groundwork/overrides") || OVERRIDES_DIR_RESOLVED=""
+fi
 
 resolve_override_cfg() {
   local p="${GROUNDWORK_GUARDRAILS_CONFIG:-}" rp

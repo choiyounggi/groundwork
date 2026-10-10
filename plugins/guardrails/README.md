@@ -195,7 +195,8 @@ sanctioned, a write into the shared main checkout still fires).
 **Residual risk:** any config file the agent's own user account can write —
 including the global file and this overrides directory — can still be changed
 by a command that account approves running; the guard does not protect its
-own config files from the user it runs as.
+own config files from the user it runs as. Keep `overrides/` a real directory:
+if it is a symlink, whatever directory it points at becomes trusted.
 
 ## Audit log
 
