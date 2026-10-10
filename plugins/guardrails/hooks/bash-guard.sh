@@ -4,9 +4,24 @@
 # PreToolUse(Bash) hook. Emits a permission decision (deny / ask) for dangerous
 # shell commands; stays silent (allow) otherwise. Generic — no org-specific rules.
 #
-# Config precedence (git-config style): built-in default
-#     < ~/.claude/groundwork/guardrails.json          (global)
-#     < <cwd>/.groundwork/guardrails.json             (repo, team-shared)
+# Config precedence is tighten-only for the repo file (see README "Configure"):
+#   base      = $GROUNDWORK_GUARDRAILS_CONFIG (trusted override, env-set)
+#               or ~/.claude/groundwork/guardrails.json  (global, user-controlled)
+#               or the built-in default
+#   effective = max(base, <cwd-up-to-toplevel>/.groundwork/guardrails.json mode)
+# Mode rank: off < ask < block. The repo config may only RAISE a rule's mode
+# (ask->block, off->ask/block); a repo mode that is not strictly higher than
+# base is ignored — a project can no longer turn a built-in ask/block off.
+# GROUNDWORK_GUARDRAILS_CONFIG names a config set by the process that launched
+# the session (e.g. dev-loop's orchestrate, for one worker's worktree config) —
+# not the project's own files, so — like the global file — it may loosen.
+# Ignored if unset, empty, a relative path, missing, or not valid JSON.
+# allowPaths is read from the override file, else the global file; the repo
+# file's allowPaths is ignored entirely (it would only ever loosen
+# worktree_escape). extraAsk/extraBlock are read from all three files —
+# additions only ever tighten, so there is nothing to restrict there.
+# An unknown mode string in any file is ignored (treated as absent for that
+# file, falling through to the next source in precedence).
 # Shape: {"rules": {"<id>": {"mode": "off|ask|block"}},
 #         "extraAsk": ["regex", ...], "extraBlock": ["regex", ...]}
 # Rule ids: curl_pipe_shell curl_pipe_interp disk_destroy fork_bomb rm_rf
@@ -31,6 +46,23 @@ GUARD_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)" || GUARD_DIR="$(dirnam
 . "$GUARD_DIR/redact.sh"
 
 GLOBAL_CFG="${HOME}/.claude/groundwork/guardrails.json"
+
+# Trusted override: a path named by the process that launched this session (an
+# orchestrator) — not the project's own files, so it is trusted to loosen, same
+# as the global file. Validated once; anything wrong with it collapses to ""
+# (treated as unset) rather than erroring, since this hook must never crash.
+resolve_override_cfg() {
+  local p="${GROUNDWORK_GUARDRAILS_CONFIG:-}"
+  [ -n "$p" ] || return 0
+  case "$p" in
+    /*) ;;
+    *) return 0 ;;  # relative path — ignored
+  esac
+  [ -f "$p" ] || return 0
+  jq empty "$p" >/dev/null 2>&1 || return 0  # not valid JSON — ignored
+  printf '%s' "$p"
+}
+OVERRIDE_CFG=$(resolve_override_cfg)
 
 # Repo config: the nearest .groundwork/guardrails.json at or above $PWD, not past
 # the git toplevel. A worker that cd'd into a subdirectory still finds its
@@ -62,26 +94,59 @@ INPUT=$(cat)
 CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
 [ -z "$CMD" ] && exit 0
 
-# Effective mode for a rule: repo config > global config > built-in default.
-effective_mode() {
-  # $1 = rule id, $2 = default mode
-  local id="$1" def="$2" m cfg
-  for cfg in "$REPO_CFG" "$GLOBAL_CFG"; do
-    [ -f "$cfg" ] || continue
-    m=$(jq -r --arg r "$id" '.rules[$r].mode // empty' "$cfg" 2>/dev/null)
-    if [ -n "$m" ]; then printf '%s' "$m"; return 0; fi
-  done
-  printf '%s' "$def"
+# Mode rank for tighten-only comparison: off < ask < block.
+mode_rank() {
+  case "$1" in
+    off)   printf 0 ;;
+    ask)   printf 1 ;;
+    block) printf 2 ;;
+    *)     return 1 ;;  # unknown — caller treats this as absent
+  esac
 }
 
-# Per-rule path allowlist: repo config > global config, first non-empty wins
-# (same precedence as effective_mode). Currently honoured by worktree_escape.
+# Read a rule's mode from one config file. Prints it only if it is a known
+# value (off|ask|block); an unknown string prints nothing, i.e. is treated as
+# if the file said nothing about this rule at all (falls through to the next
+# source) rather than being used verbatim.
+read_mode() {
+  local cfg="$1" id="$2" m
+  [ -f "$cfg" ] || return 0
+  m=$(jq -r --arg r "$id" '.rules[$r].mode // empty' "$cfg" 2>/dev/null)
+  case "$m" in off|ask|block) printf '%s' "$m" ;; esac
+}
+
+# Effective mode for a rule: base = override config > global config > built-in
+# default (these may loosen). The repo config may only RAISE that base — a
+# repo mode that is not strictly higher than base (lower, equal, or an unknown
+# string) is ignored, so a project file can tighten a rule but never turn a
+# built-in ask/block off.
+effective_mode() {
+  # $1 = rule id, $2 = default mode
+  local id="$1" def="$2" base repo_mode cfg
+  base=""
+  for cfg in "$OVERRIDE_CFG" "$GLOBAL_CFG"; do
+    [ -n "$cfg" ] || continue
+    base=$(read_mode "$cfg" "$id")
+    [ -n "$base" ] && break
+  done
+  [ -n "$base" ] || base="$def"
+  repo_mode=$(read_mode "$REPO_CFG" "$id")
+  if [ -n "$repo_mode" ] && [ "$(mode_rank "$repo_mode")" -gt "$(mode_rank "$base")" ] 2>/dev/null; then
+    printf '%s' "$repo_mode"
+    return 0
+  fi
+  printf '%s' "$base"
+}
+
+# Per-rule path allowlist: override config > global config, first non-empty
+# wins. The repo config is excluded on purpose — allowPaths only ever widens
+# what worktree_escape permits, i.e. loosens it, and the repo may not loosen.
 # Generic on purpose — the guard ships no knowledge of any tool's directory
 # layout; a caller that has a sanctioned write path declares it in its config.
 rule_allow_paths() {
   # $1 = rule id -> prints one relative path per line (may be empty)
   local id="$1" v cfg
-  for cfg in "$REPO_CFG" "$GLOBAL_CFG"; do
+  for cfg in "$OVERRIDE_CFG" "$GLOBAL_CFG"; do
     [ -f "$cfg" ] || continue
     v=$(jq -r --arg r "$id" '(.rules[$r].allowPaths // []) | .[]' "$cfg" 2>/dev/null)
     if [ -n "$v" ]; then printf '%s\n' "$v"; return 0; fi
@@ -303,10 +368,13 @@ EOF
 esac
 
 # ===================== user-defined extra patterns =====================
+# Read from all three files — an addition here only ever tightens (it adds a
+# new ask/block pattern; it can never loosen an existing rule), so there is no
+# tighten-only restriction to apply.
 apply_extra() {
   # $1 = jq array field, $2 = mode
   local field="$1" mode="$2" cfg pat
-  for cfg in "$REPO_CFG" "$GLOBAL_CFG"; do
+  for cfg in "$REPO_CFG" "$GLOBAL_CFG" "$OVERRIDE_CFG"; do
     [ -f "$cfg" ] || continue
     while IFS= read -r pat; do
       [ -z "$pat" ] && continue

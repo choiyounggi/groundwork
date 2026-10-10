@@ -1,5 +1,5 @@
 {
-  "_comment": "Copy to .groundwork/guardrails.json (repo, team-shared) or ~/.claude/groundwork/guardrails.json (global). Repo overrides global overrides built-in defaults. Every field is optional.",
+  "_comment": "Copy to .groundwork/guardrails.json (repo, team-shared) or ~/.claude/groundwork/guardrails.json (global). Effective mode = max(global/override, repo) per rule, off < ask < block, so the repo file can only tighten (raise) a rule, never loosen it; loosening comes only from the global file or $GROUNDWORK_GUARDRAILS_CONFIG. Every field is optional. See README 'Configure'.",
   "rules": {
     "rm_rf": { "mode": "ask" },
     "kubectl_delete": { "mode": "block" },
