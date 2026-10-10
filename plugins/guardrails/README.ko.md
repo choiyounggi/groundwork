@@ -73,10 +73,37 @@ bash plugins/guardrails/scripts/self-test.sh
 
 ## 설정
 
-`guardrails.json`을 두 레벨 중 원하는 곳에 두세요 (레포 > 글로벌 > 기본값):
+규칙의 최종 모드는 네 소스에서 결정되며, 그중 일부만 규칙을 **완화**(`block`/`ask`를
+`off` 쪽으로 낮춤)할 수 있습니다 — **강화**(`block` 쪽으로 높임)는 어느 소스든 가능합니다:
 
-- `<repo>/.groundwork/guardrails.json` — 팀 공유, 레포에 커밋
-- `~/.claude/groundwork/guardrails.json` — 내 글로벌 기본값
+| 소스 | 설정 주체 | 완화 가능 | 강화 가능 |
+|---|---|---|---|
+| 내장 기본값 | 플러그인 | — | — |
+| `~/.claude/groundwork/guardrails.json` (글로벌) | 사용자 본인 | 가능 | 가능 |
+| `$GROUNDWORK_GUARDRAILS_CONFIG` (신뢰된 오버라이드) | 이 세션을 띄운 프로세스(예: 오케스트레이터) — 프로젝트 파일이 아님 | 가능, 글로벌보다 우선 | 가능 |
+| `<repo>/.groundwork/guardrails.json` (레포, 팀 공유) | 지금 작업 중인 프로젝트 | **불가** | 가능 |
+
+최종 모드 = `max(base, 레포 모드)`이며, `base`는 오버라이드의 모드, 없으면 글로벌
+파일의 모드, 그것도 없으면 내장 기본값이고, `max`는 `off < ask < block` 순으로
+비교합니다. 레포에 커밋된 설정은 규칙을 강화(`rm_rf: ask -> block`)할 수는 있지만
+절대 완화할 수는 없습니다 — 프로젝트가 `.groundwork/guardrails.json`으로 내장
+`ask`/`block` 규칙을 조용히 꺼버릴 수 없다는 뜻입니다. 완화는 오직 사용자 본인(글로벌
+파일)이나, 이 세션을 띄운 무언가가 `GROUNDWORK_GUARDRAILS_CONFIG`로 가리키는 자신의
+설정 파일(절대경로. 미설정·상대경로·파일 없음·JSON 아님이면 무시됨)에서만 올 수
+있습니다. 언제 이 변수를 설정하는지는 아래 "오케스트레이션 / 워커 세션"을 참고하세요.
+
+**오버라이드는 `~/.claude/groundwork/overrides/` 안에 있어야 합니다.** 이것은
+거부 목록이 아니라 허용 목록입니다: `$GROUNDWORK_GUARDRAILS_CONFIG`는 완전히
+해석된 경로(심볼릭 링크 추적, 대소문자 정규화까지 끝낸 경로)가 바로 그 디렉토리
+안에 엄격히 들어있을 때만 신뢰됩니다. 그 외에는 — 다른 어떤 절대경로든, 상대
+경로든, 파일 없음이든, 디렉토리든, JSON이 아니든 — 전부 미설정 취급으로
+무시됩니다. 이 디렉토리는 직접 만들어 두세요(`mkdir -m 700 -p
+~/.claude/groundwork/overrides`) — 그래야 본인 계정만 쓸 수 있습니다. 프로젝트
+안에서 실행되는 명령이 만들거나 고쳐 쓸 수 있는 파일은 환경변수로 무엇을
+가리키든 신뢰할 수 없습니다. "프로젝트 바깥 어딘가"라는 판정을 git 상태로
+직접 맞혀야 하는 경우(`git`이 PATH에 없을 때, 중첩 레포·서브모듈, `GIT_DIR`
+트릭, 대소문자 구분 없는 파일시스템에서의 철자 바꿔치기)가 아예 없습니다 — 오직
+"해석된 경로가 이 디렉토리 하나 안에 있는가"만 묻습니다.
 
 레포 설정은 현재 디렉토리에서 git 최상위까지 거슬러 올라가며 탐색되므로, 레포의
 어느 하위 디렉토리에서도 적용됩니다. git 레포 밖에서는 현재 디렉토리만 확인합니다.
@@ -93,13 +120,19 @@ bash plugins/guardrails/scripts/self-test.sh
 }
 ```
 
+`extraAsk`/`extraBlock`은 세 파일(글로벌·오버라이드·레포) 모두에서 읽습니다 —
+여기 추가하는 항목은 새 패턴을 더할 뿐이라 항상 강화 방향입니다.
+
 [`examples/guardrails.example.json`](examples/guardrails.example.json) 참고.
 
 ### 허용된 쓰기 경로 (`worktree_escape`)
 
 여러 워크트리를 조율하는 도구는 공유 상태를 메인 체크아웃 안에 두는 경우가 많아,
 워커의 정당한 쓰기가 전부 `worktree_escape`가 막으려는 오염처럼 보입니다. 규칙을
-끄는 대신 그 경로를 선언하세요:
+끄는 대신 글로벌 파일이나 `$GROUNDWORK_GUARDRAILS_CONFIG`에 그 경로를 선언하세요.
+`allowPaths`는 규칙이 허용하는 범위를 넓히는 것, 즉 완화이므로 **레포 설정은 이를
+선언할 수 없습니다** — 레포의 `allowPaths`는 레포 모드가 완화 방향일 때와 마찬가지로
+완전히 무시됩니다.
 
 ```jsonc
 { "rules": { "worktree_escape": { "mode": "ask", "allowPaths": [".orchestration"] } } }
@@ -108,7 +141,7 @@ bash plugins/guardrails/scripts/self-test.sh
 경로는 메인 워크트리 루트 기준 상대경로입니다. 메인 루트 참조가 **오직** 허용
 경로뿐인 명령은 발동하지 않고, 체크아웃까지 건드리는 명령은 그대로 발동합니다.
 절대경로와 `..`이 포함된 항목은 무시되므로, 이 목록으로 규칙을 메인 루트 밖까지
-넓힐 수는 없습니다.을 참고하세요.
+넓힐 수는 없습니다.
 
 ### 비대화 / CI
 
@@ -126,17 +159,37 @@ bash plugins/guardrails/scripts/self-test.sh
 그걸 보고 승인 후 단계를 재실행할 수 있습니다. 이는 `GROUNDWORK_NONINTERACTIVE`보다
 우선합니다 — 둘 다 deny지만 에스컬레이션은 조용하지 않고 관측 가능합니다.
 
-워크트리 루트에 `.groundwork/guardrails.json`을 두어 규칙 범위를 좁히세요:
-샌드박스에서 무해한 규칙은 완화하고, 위험한 규칙은 `ask`로 유지(→ 에스컬레이션)합니다.
+워크트리 루트에 `.groundwork/guardrails.json`을 써서 규칙 범위를 좁히세요: 위험한
+규칙은 `ask`로 유지(→ 에스컬레이션)합니다. 이 파일은 *레포* 설정으로 읽히므로
+(워크트리 안에 있어 그 안에서 실행되는 명령이 고쳐 쓸 수 있으니까) 그 자체로는
+강화만 할 수 있습니다.
 
-이 규약은 디렉토리 하나와 변수 두 개뿐이라 어떤 오케스트레이터든 채택할 수
+샌드박스에서 무해한 규칙을 워커 하나에 한해 *완화*(예: 일회용 워크트리라 버려도
+되니 `rm_rf: off`)하려면, 오케스트레이터가 `~/.claude/groundwork/overrides/`
+안에 두 번째 파일을 쓰고 `GROUNDWORK_GUARDRAILS_CONFIG`로 그 파일을 가리키게
+export해야 합니다. 이 디렉토리가 바로 "프로젝트가 커밋한 설정이 아니라 신뢰된
+프로세스가 띄운 설정"이라는 표시입니다 — 왜 "프로젝트 바깥" 판정이 아니라 허용
+목록 디렉토리인지는 위 "설정"을 참고하세요.
+
+이 규약은 디렉토리 하나와 적은 수의 환경변수뿐이라 어떤 오케스트레이터든 채택할 수
 있습니다. **dev-loop의 `orchestrate`는 이미 그렇게 하고 있습니다** — Orca가
-`PATH`에서 감지되면 Orca 위에서, 아니면 순수 tmux로. 모든 워커 세션에 두 변수를
-export하고, 각 워커 워크트리에 위와 정확히 같은 형태의 git-ignore된 설정을
-써 줍니다: 일회용 워크트리 안에서는 `rm_rf: off`, `curl_pipe_shell`과
-`worktree_escape`는 `ask`로 유지해 에스컬레이션되게 하고,
-`worktree_escape.allowPaths: [".orchestration"]`으로 조율용 상태 쓰기는 허용하되
-공유 메인 체크아웃으로의 쓰기는 그대로 걸리게 합니다.
+`PATH`에서 감지되면 Orca 위에서, 아니면 순수 tmux로. 모든 워커 세션에
+`GROUNDWORK_ESCALATION_DIR`과 `GROUNDWORK_TASK_ID`를 export하고, 각 워커
+워크트리의 `<worktree>/.groundwork/guardrails.json`에 git-ignore된 **레포**
+설정을 써줍니다(`curl_pipe_shell`과 `worktree_escape`는 `ask`로 유지해
+에스컬레이션되게 — 레포 설정은 강화만 가능하므로). 그와 별도로
+`~/.claude/groundwork/overrides/dev-loop-<id>.json`에 워커 **오버라이드**를
+써주고 `GROUNDWORK_GUARDRAILS_CONFIG`를 그곳으로 export합니다. 실제로
+`rm_rf: off`를 일회용 워크트리 안에 적용하고
+`worktree_escape.allowPaths: [".orchestration"]`(조율용 상태 쓰기는 허용하되
+공유 메인 체크아웃으로의 쓰기는 그대로 걸림)을 담당하는 쪽이 바로 이 오버라이드
+파일입니다.
+
+**잔여 위험:** 에이전트가 쓰고 있는 사용자 계정이 쓸 수 있는 설정 파일은 —
+글로벌 파일과 이 오버라이드 디렉토리까지 포함해서 — 그 계정이 승인한 명령으로
+여전히 바뀔 수 있습니다. 이 가드는 자기 자신의 설정 파일을, 자신이 실행되는
+사용자 계정으로부터는 보호하지 않습니다. `overrides/`는 실제 디렉토리로 두세요.
+심볼릭 링크로 만들면 링크가 가리키는 디렉토리 전체가 신뢰 대상이 됩니다.
 
 ## 감사 로그
 

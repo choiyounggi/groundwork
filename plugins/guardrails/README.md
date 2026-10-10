@@ -74,10 +74,39 @@ command inside a quoted argument does **not** trigger a block.
 
 ## Configure
 
-Drop a `guardrails.json` at either level (repo overrides global overrides defaults):
+Four sources feed a rule's effective mode, and only some of them may **loosen**
+it (lower `block`/`ask` toward `off`) — any of them may **tighten** it (raise
+toward `block`):
 
-- `<repo>/.groundwork/guardrails.json` — team-shared, committed with the repo
-- `~/.claude/groundwork/guardrails.json` — your global default
+| Source | Set by | May loosen | May tighten |
+|---|---|---|---|
+| built-in default | the plugin | — | — |
+| `~/.claude/groundwork/guardrails.json` (global) | you | yes | yes |
+| `$GROUNDWORK_GUARDRAILS_CONFIG` (trusted override) | the process that launched the session (e.g. an orchestrator) — **not** the project's files | yes, and wins over the global file | yes |
+| `<repo>/.groundwork/guardrails.json` (repo, team-shared) | the project being worked on | **no** | yes |
+
+Effective mode = `max(base, repo mode)`, where `base` is the override's mode,
+else the global file's, else the built-in default, and `max` ranks
+`off < ask < block`. A repo's committed config can raise a rule
+(`rm_rf: ask -> block`) but can never lower one — a project cannot ship a
+`.groundwork/guardrails.json` that quietly turns a built-in `ask`/`block` rule
+off. Loosening can only come from you (the global file) or from whatever
+launched this session via `GROUNDWORK_GUARDRAILS_CONFIG`. See
+"Orchestration / worker sessions" below for when to set it.
+
+**The override must live in `~/.claude/groundwork/overrides/`.** This is an
+allowlist, not a list of places to reject: `$GROUNDWORK_GUARDRAILS_CONFIG` is
+trusted *only* if its fully resolved path (symlinks followed, case
+canonicalized) sits strictly inside that one directory. Anything else — any
+other absolute path, a relative path, a missing file, a directory, invalid
+JSON — is ignored, exactly as if the env var were unset. Create the directory
+yourself (`mkdir -m 700 -p ~/.claude/groundwork/overrides`) so only your own
+account can write to it; a file a project-running command could instead
+create or rewrite is never something this hook can trust, no matter what env
+var names it. There is deliberately no "anywhere outside the project" rule to
+get right (git missing from `PATH`, a nested repo or submodule, `GIT_DIR`
+tricks, case-insensitive-filesystem spelling games) — the only question is
+whether the resolved path is inside this one directory.
 
 The repo config is discovered by walking up from the current directory to the git
 toplevel, so it applies from any subdirectory of the repo. Outside a git repo,
@@ -95,6 +124,9 @@ only the current directory is checked.
 }
 ```
 
+`extraAsk`/`extraBlock` are read from all three files (global, override, repo) —
+an entry there only ever adds a new pattern, so it can only tighten.
+
 See [`examples/guardrails.example.json`](examples/guardrails.example.json).
 
 ### Sanctioned write paths (`worktree_escape`)
@@ -102,7 +134,10 @@ See [`examples/guardrails.example.json`](examples/guardrails.example.json).
 A tool that coordinates several worktrees usually keeps shared state inside the
 main checkout, so every legitimate write from a worker looks like the corruption
 `worktree_escape` exists to stop. Declare those paths instead of turning the rule
-off:
+off — in the global file or `$GROUNDWORK_GUARDRAILS_CONFIG`. `allowPaths` only
+ever widens what the rule permits (it loosens it), so **the repo config cannot
+set it**: a repo `allowPaths` is ignored entirely, same as a repo mode that
+tries to go lower.
 
 ```jsonc
 { "rules": { "worktree_escape": { "mode": "ask", "allowPaths": [".orchestration"] } } }
@@ -131,18 +166,37 @@ returns `deny`, so the coordinator can see it and re-issue the step with approva
 rather than the worker hanging. This takes precedence over
 `GROUNDWORK_NONINTERACTIVE` — both deny, but an escalation is visible, not silent.
 
-Scope which rules matter per worktree by dropping a `.groundwork/guardrails.json`
-at the worktree root: loosen sandbox-harmless rules and keep the dangerous ones as
-`ask` (which then escalate).
+Scope which rules matter per worktree by writing a `.groundwork/guardrails.json`
+at the worktree root: keep the dangerous rules at `ask` (which then escalate).
+That file is read as the *repo* config (it's inside the worktree, so a command
+running there could rewrite it), so on its own it can only tighten.
 
-The contract is just a directory and two variables, so any orchestrator can adopt
-it. **dev-loop's `orchestrate` already does** — on Orca when it is detected on
-your `PATH`, on plain tmux otherwise. It exports both variables into every worker
-session and writes each worker worktree a git-ignored config in exactly the shape
-above: `rm_rf: off` inside the throwaway worktree, `curl_pipe_shell` and
-`worktree_escape` held at `ask` so they escalate, and
-`worktree_escape.allowPaths: [".orchestration"]` so coordination-state writes are
-sanctioned while a write into the shared main checkout still fires.
+To also *loosen* a sandbox-harmless rule for one worker (e.g. `rm_rf: off`,
+since a throwaway worktree's own files are disposable), the orchestrator writes
+a **second** file inside `~/.claude/groundwork/overrides/` and exports
+`GROUNDWORK_GUARDRAILS_CONFIG` pointing at it. That directory is what marks a
+config as launched by a trusted process rather than shipped by the project —
+see "Configure" above for why it's an allowlisted directory rather than a
+"not inside the project" check.
+
+The contract is a directory and a small set of env vars, so any orchestrator can
+adopt it. **dev-loop's `orchestrate` already does** — on Orca when it is detected
+on your `PATH`, on plain tmux otherwise. It exports `GROUNDWORK_ESCALATION_DIR`
+and `GROUNDWORK_TASK_ID` into every worker session, writes each worker worktree a
+git-ignored **repo** config at `<worktree>/.groundwork/guardrails.json` (`ask`
+held on `curl_pipe_shell` and `worktree_escape` so they escalate, since a repo
+config can only tighten), and separately writes a worker **override** at
+`~/.claude/groundwork/overrides/dev-loop-<id>.json`, exporting
+`GROUNDWORK_GUARDRAILS_CONFIG` to point there. The override is what actually
+carries `rm_rf: off` inside the throwaway worktree and
+`worktree_escape.allowPaths: [".orchestration"]` (coordination-state writes
+sanctioned, a write into the shared main checkout still fires).
+
+**Residual risk:** any config file the agent's own user account can write —
+including the global file and this overrides directory — can still be changed
+by a command that account approves running; the guard does not protect its
+own config files from the user it runs as. Keep `overrides/` a real directory:
+if it is a symlink, whatever directory it points at becomes trusted.
 
 ## Audit log
 
