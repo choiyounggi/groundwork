@@ -148,6 +148,11 @@ LLM은 예/아니오 질문에 느리고 말이 많습니다. [Jev](https://docs
 /plugin install session-progress@groundwork
 ```
 
+<p align="center">
+  <img src="plugins/session-progress/assets/screenshot-ko.png" alt="실제 세션의 session-progress pane: 계획 진행 바, dev-loop 실행, 작업 이력, 컨텍스트 드래곤" width="560">
+</p>
+
+Claude Code mod(셸 명령이 아닌 함수 훅)로 만들었습니다 — [어떻게 만들었나](plugins/session-progress/README.ko.md#어떻게-만들었나).
 mod 를 지원하는 Claude Code 빌드가 필요합니다(2.1.296 에서 확인).
 
 ## 왜 그냥 스타터 템플릿이 아닌가?
