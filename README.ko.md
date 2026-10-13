@@ -137,6 +137,19 @@ LLM은 예/아니오 질문에 느리고 말이 많습니다. [Jev](https://docs
 
 써보기: `/jev-gate:setup`. 자세히: [Jev 패턴](#생성-없는-판단--jev-패턴).
 
+### 함께 쓰기: [session-progress](plugins/session-progress/README.ko.md) — 세션을 한눈에
+
+하네스의 일부가 아니라 하네스를 보는 창입니다. 지금 요청의 계획 진행 바, 단계와
+서브에이전트까지 담은 작업 이력, (코디네이터 체크아웃에서) dev-loop 실행의 진행률,
+컨텍스트 창과 함께 자라는 컨텍스트 드래곤을 pane 하나에 보여 줍니다. 프로젝트에는 아무것도
+쓰지 않으며, 영어와 한국어를 지원합니다.
+
+```text
+/plugin install session-progress@groundwork
+```
+
+mod 를 지원하는 Claude Code 빌드가 필요합니다(2.1.296 에서 확인).
+
 ## 왜 그냥 스타터 템플릿이 아닌가?
 
 대부분의 Claude Code 스타터는 *구조*를 스캐폴딩합니다. `groundwork`는

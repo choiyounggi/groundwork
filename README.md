@@ -143,6 +143,19 @@ decider.
 Try it: `/jev-gate:setup`. Details:
 [the Jev pattern](#judgment-without-generation--the-jev-pattern).
 
+### Companion: [session-progress](plugins/session-progress/README.md) — see the session at a glance
+
+Not part of the harness: a view onto it. A pane with the current request's plan bar,
+a history of every task with its steps and subagents, the live progress of a
+dev-loop run (from the coordinator's checkout), and a Context Dragon that grows
+with the context window. Never writes to your project; English and Korean.
+
+```text
+/plugin install session-progress@groundwork
+```
+
+Needs a Claude Code build with mod support (verified on 2.1.296).
+
 ## Why not just a starter template?
 
 Most Claude Code starters scaffold *structure*. `groundwork` ships **behavior**:
