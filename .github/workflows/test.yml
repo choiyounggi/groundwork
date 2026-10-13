@@ -26,6 +26,39 @@ jobs:
       - name: Check workflow YAML registers
         run: bash scripts/check-workflows.sh
 
+  session-progress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      # The mod reads files dev-loop writes. Regenerating the fixture from the dev-loop
+      # this marketplace pins, and failing on any difference, is what catches a dev-loop
+      # release that changes the status format before the worker view goes blank.
+      - name: Check the dev-loop fixture against the pinned dev-loop
+        run: |
+          ref=$(jq -r '.plugins[] | select(.name == "dev-loop") | .source.ref' .claude-plugin/marketplace.json)
+          git clone --quiet --depth 1 --branch "$ref" https://github.com/choiyounggi/dev-loop.git "$RUNNER_TEMP/dev-loop"
+          bash plugins/session-progress/scripts/dev-loop-fixture.sh "$RUNNER_TEMP/dev-loop" "$RUNNER_TEMP/fixture" \
+            > plugins/session-progress/tests/fixtures/dev-loop-run.ts
+          git diff --exit-code -- plugins/session-progress/tests/fixtures/dev-loop-run.ts
+
+      # Pinned to the build the mod was verified on; the mod API moves between releases.
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@2.1.296
+
+      - name: Validate and test
+        run: |
+          claude plugin validate plugins/session-progress
+          claude plugin test plugins/session-progress
+
   shellcheck:
     runs-on: ubuntu-latest
     continue-on-error: true

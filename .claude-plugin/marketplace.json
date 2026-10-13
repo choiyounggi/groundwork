@@ -48,6 +48,27 @@
       ]
     },
     {
+      "name": "session-progress",
+      "description": "A pane for your Claude Code session — a plan bar for the current request, a task history with steps and subagents, the live progress of a dev-loop orchestration run, and a Context Dragon that grows with the context window. A mod that never writes to your project; English and Korean.",
+      "category": "development",
+      "author": {
+        "name": "choiyounggi",
+        "url": "https://github.com/choiyounggi"
+      },
+      "source": "./plugins/session-progress",
+      "homepage": "https://github.com/choiyounggi/groundwork",
+      "version": "0.3.0",
+      "tags": [
+        "progress",
+        "pane",
+        "task-history",
+        "dev-loop",
+        "context-window",
+        "mod",
+        "claude-code"
+      ]
+    },
+    {
       "name": "dev-loop",
       "description": "A wiki-grounded implementation loop — planning fixed to a semantic-layer best-practices wiki, a TDD / PDCA / Reflexion verification loop, and a knowledge-capture loop that harvests verified insights into reviewed wiki PRs.",
       "category": "development",

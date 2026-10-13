@@ -30,7 +30,7 @@ const PANE_VIEW = {
   component: 'Pane',
   requestId: 'session-progress',
   props: {
-    title: '세션 진행 현황',
+    title: 'Session progress',
     isFocused: true,
     bodyColumns: 100,
     placement: 'dock',
@@ -120,7 +120,7 @@ describe('agents and steps', () => {
   test('steps input is validated', async () => {
     expect(parseSteps([{ title: ' 분석 ', status: 'completed' }])).toEqual([{ title: '분석', status: 'completed' }])
     expect(parseSteps([])).toEqual([])
-    expect(parseSteps('x')).toBe('steps 는 배열이어야 합니다.')
+    expect(parseSteps('x')).toBe('steps must be an array.')
     expect(parseSteps([{ title: '', status: 'pending' }])).toContain('title')
     expect(parseSteps([{ title: 'a', status: 'done' }])).toContain('status')
   })
@@ -184,11 +184,11 @@ describe('plan bar', () => {
     on('turn.start', (_$, e) => ({ turnId: e.turnId }))
     await $.turn.start({ text: '리팩터링 해줘', turnId: 'T1' })
     const pane = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE_VIEW })
-    expect(await pane.find({ type: 'Text', text: '아직 보고된 단계가 없습니다.' })).toBeDefined()
+    expect(await pane.find({ type: 'Text', text: 'No steps reported yet.' })).toBeDefined()
     await pane.unmount()
     const band = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...BAND })
     expect(await band.find({ type: 'Text', text: 'engine-band' })).toBeDefined()
-    expect(await band.find({ type: 'Text', text: /단계 없음/ })).toBeUndefined()
+    expect(await band.find({ type: 'Text', text: /No steps|단계 없음/ })).toBeUndefined()
     await band.unmount()
   })
 
@@ -201,7 +201,7 @@ describe('plan bar', () => {
     const callSteps = (input: Record<string, unknown>) =>
       $.tool.call({ tool: 'mcp__session-progress__steps', ...input } as unknown as Parameters<typeof $.tool.call>[0])
     const bad = await callSteps({ tool_use_id: 's0', steps: 'nope' })
-    expect(bad.deny).toBe('steps 는 배열이어야 합니다.')
+    expect(bad.deny).toBe('steps must be an array.')
     const ok = await callSteps({
       tool_use_id: 's1',
       steps: [
@@ -209,7 +209,7 @@ describe('plan bar', () => {
         { title: '구현', status: 'in_progress' },
       ],
     })
-    expect(ok.result).toBe('진행 현황에 기록했습니다: 1/2')
+    expect(ok.result).toBe('Recorded in session progress: 1/2')
     for (const surface of ['terminal', 'desktop'] as const) {
       const ui = await $.ui.mount({ plugin: 'session-progress', surface, ...PANE_VIEW })
       expect(await ui.find({ type: 'Text', text: /1\/2 \(50%\)/ })).toBeDefined()

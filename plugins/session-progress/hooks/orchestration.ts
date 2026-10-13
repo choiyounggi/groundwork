@@ -18,19 +18,6 @@ export const PHASE_SCORE: Record<string, number> = {
 }
 const MAX_SCORE = 7
 
-export const PHASE_LABEL: Record<string, string> = {
-  pending: '대기',
-  planning: '계획 중',
-  plan_ready: '계획 완료',
-  implementing: '구현 중',
-  rework: '재작업',
-  impl_done: '구현 완료',
-  approved: '승인',
-  merged: '머지됨',
-  done: '완료',
-  failed: '실패',
-}
-
 const TERMINAL = new Set(['approved', 'merged', 'done', 'failed'])
 
 export function isTerminal(phase: string): boolean {

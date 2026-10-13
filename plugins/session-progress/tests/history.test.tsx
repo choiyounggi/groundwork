@@ -3,6 +3,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
 import { briefTitle, cleanTitle, combineTodos, compactText } from '../hooks/format'
+import { MESSAGES } from '../hooks/i18n'
 import { buildHistoryRows, cellWidth, cutToWidth, layoutHistoryLines, spinnerAt } from '../hooks/tree'
 import type { HistoryLine } from '../hooks/tree'
 import type { AgentRow, Todo, Turn } from '../types'
@@ -39,7 +40,7 @@ const PANE_VIEW = {
   component: 'Pane',
   requestId: 'session-progress',
   props: {
-    title: '세션 진행 현황',
+    title: 'Session progress',
     isFocused: true,
     bodyColumns: 100,
     placement: 'dock',
@@ -51,7 +52,7 @@ const PANE_VIEW = {
 
 describe('history tree', () => {
   test('collapsed: one row per task, oldest first, with its plan progress', async () => {
-    const rows = buildHistoryRows([T1, T2], [AGENT], new Set(), 90_000)
+    const rows = buildHistoryRows([T1, T2], [AGENT], new Set(), 90_000, '▶', MESSAGES.ko)
     expect(rows.map(r => [r.text, r.isOpenable, r.isOpen, r.meta])).toEqual([
       ['#1 첫 작업', true, false, '1/3 · 1분 0초'],
       ['#2 두 번째 작업', false, false, '진행 중 20초'],
@@ -60,7 +61,7 @@ describe('history tree', () => {
   })
 
   test('opening a task lists its plan steps with each status, then its parallel agents', async () => {
-    const rows = buildHistoryRows([T1, T2], [AGENT], new Set(['t:T1']), 90_000)
+    const rows = buildHistoryRows([T1, T2], [AGENT], new Set(['t:T1']), 90_000, '▶', MESSAGES.ko)
     expect(rows.map(r => [`${r.guide}${r.mark} ${r.text}`, r.meta])).toEqual([
       ['✔ #1 첫 작업', '1/3 · 1분 0초'],
       ['├─ ✔ 분석', '완료'],
@@ -75,7 +76,7 @@ describe('history tree', () => {
   test('a spinner frame replaces ▶ only on what is still running', async () => {
     const running: Turn = { ...T2, steps: [{ title: '수정', status: 'in_progress' }, { title: '확인', status: 'pending' }] }
     const live: AgentRow = { ...AGENT, id: 'a2', turnId: 'T2', status: 'running' }
-    const rows = buildHistoryRows([T1, running], [AGENT, live], new Set(['t:T1', 't:T2']), 90_000, '⠙')
+    const rows = buildHistoryRows([T1, running], [AGENT, live], new Set(['t:T1', 't:T2']), 90_000, '⠙', MESSAGES.ko)
     expect(rows.map(r => `${r.guide}${r.mark} ${r.text}`)).toEqual([
       '✔ #1 첫 작업',
       '├─ ✔ 분석',
@@ -95,7 +96,7 @@ describe('history tree', () => {
   test('history rows carry no bar of their own', async () => {
     const lines = layoutHistoryLines(buildHistoryRows([T1, T2], [], new Set(), 90_000), 100)
     expect(lines.every(l => !('bar' in l))).toBe(true)
-    expect(lines[0]?.meta).toBe('1/3 · 1분 0초')
+    expect(lines[0]?.meta).toBe('1/3 · 1m 0s')
   })
 
   test('width counts Hangul as two cells', async () => {
@@ -153,7 +154,7 @@ describe('reset per task', () => {
     await clock.advance(60_000)
     await $.turn.start({ text: '작업 2', turnId: 'T2' })
     const ui = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE_VIEW })
-    expect(await ui.find({ type: 'Text', text: '아직 보고된 단계가 없습니다.' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: 'No steps reported yet.' })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /2\/2 \(100%\)/ })).toBeUndefined()
     await ui.unmount()
   })
@@ -200,8 +201,8 @@ describe('reset per task', () => {
     await ui.press({ key: 'h-t:T1' })
     // The first task's plan: both analysis and implementation show as completed (implementation was finished in the
     // follow-up task).
-    expect((await ui.findAll({ type: 'Text', text: /^완료$/ })).length).toBe(2)
-    expect(await ui.find({ type: 'Text', text: /^진행 중$/ })).toBeUndefined()
+    expect((await ui.findAll({ type: 'Text', text: /^done$/ })).length).toBe(2)
+    expect(await ui.find({ type: 'Text', text: /^in progress$/ })).toBeUndefined()
     await ui.unmount()
   })
 
@@ -215,7 +216,7 @@ describe('reset per task', () => {
     await clock.advance(120_000)
     await $.turn.start({ text: '나중 작업', turnId: 'T2' })
     const ui = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE_VIEW })
-    expect(await ui.find({ type: 'Text', text: '아직 보고된 단계가 없습니다.' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: 'No steps reported yet.' })).toBeDefined()
     await ui.unmount()
   })
 })
@@ -225,7 +226,7 @@ describe('history pane', () => {
     component: 'Pane',
     requestId: 'session-progress',
     props: {
-      title: '세션 진행 현황',
+      title: 'Session progress',
       isFocused: true,
       bodyColumns: 100,
       placement: 'dock',
@@ -261,7 +262,7 @@ describe('history pane', () => {
     const before = await count()
     await ui.press({ key: 'h-t:T1' })
     expect(await count()).toBe(before + 1)
-    expect(await ui.find({ type: 'Text', text: /^진행 중$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^in progress$/ })).toBeDefined()
     await ui.press({ key: 'h-t:T1' })
     expect(await count()).toBe(before)
     await ui.unmount()
@@ -273,11 +274,11 @@ describe('history pane', () => {
     for (let n = 1; n <= 15; n++) await task($, n, [{ title: `단계 ${n}`, status: 'completed' }])
     const ui = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE })
     // The list is in ascending order, so the bottom (newest) is visible at first.
-    expect(await ui.find({ type: 'Text', text: /4–15 \/ 15줄/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /4–15 \/ 15 lines/ })).toBeDefined()
     expect(await ui.find({ key: 'h-t:T15' })).toBeDefined()
     expect(await ui.find({ key: 'h-t:T1' })).toBeUndefined()
     await ui.press({ key: 'h-up' })
-    expect(await ui.find({ type: 'Text', text: /1–12 \/ 15줄/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /1–12 \/ 15 lines/ })).toBeDefined()
     expect(await ui.find({ key: 'h-t:T1' })).toBeDefined()
     expect(await ui.find({ key: 'h-t:T15' })).toBeUndefined()
     await ui.press({ key: 'h-top' })
@@ -381,7 +382,7 @@ describe('one bar, not two', () => {
       steps: [{ title: '분석', status: 'in_progress' }],
     } as never)
     const band = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...BAND })
-    expect(await band.find({ type: 'Text', text: /^할 일 $/ })).toBeUndefined()
+    expect(await band.find({ type: 'Text', text: /^(Plan|할 일) $/ })).toBeUndefined()
     expect(await band.find({ type: 'Text', text: 'engine-band' })).toBeDefined()
     await band.unmount()
     const pane = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE_VIEW })
@@ -495,7 +496,7 @@ describe('narrow terminals', () => {
     on('agent.list', () => ({ value: [] }))
     on('ui.invalidate', () => ({ value: undefined }))
     on('ui.panes', () => ({
-      value: [{ id: 'session-progress', title: '세션 진행 현황', isShown: placed(), isFocused: false, isPlaced: placed() }],
+      value: [{ id: 'session-progress', title: 'Session progress', isShown: placed(), isFocused: false, isPlaced: placed() }],
     }))
     on('ui.open', (_$, e) => {
       opened.push(e.id)
@@ -540,8 +541,8 @@ describe('no hide switch', () => {
     await $.turn.start({ text: '작업', turnId: 'T1' })
     const ui = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE_VIEW })
     expect(await ui.find({ key: 'band' })).toBeUndefined()
-    expect(await ui.find({ type: 'Button', text: /숨기기|보이기/ })).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: /작업 이력/ })).toBeDefined()
+    expect(await ui.find({ type: 'Button', text: /Hide|Show|숨기기|보이기/ })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /History/ })).toBeDefined()
     await ui.unmount()
   })
 })

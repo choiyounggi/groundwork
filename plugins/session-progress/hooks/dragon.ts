@@ -27,7 +27,6 @@ type Palette = Record<Key, number>
 type Stage = {
   /** Context usage (%) at which this stage begins. */
   from: number
-  flavor: string
   /** Info text color (body color). */
   tint: string
   palette: Palette
@@ -196,14 +195,12 @@ const SHELL = { q: 0xf3e9d2, z: 0xd9705a }
 export const STAGES: readonly Stage[] = [
   {
     from: 0,
-    flavor: '따뜻하다. 안에서 무언가 꿈틀거린다.',
     tint: '#e8c8a8',
     sprite: EGG,
     palette: { o: 0x3a2418, b: 0, d: 0, l: 0, w: 0, e: 0, h: 0, t: 0, m: 0, ...SHELL, c: 0xff4030, x: 0 },
   },
   {
     from: 10,
-    flavor: '삐약… 아니, 크앙?',
     tint: '#f4a58a',
     sprite: HATCHLING,
     palette: {
@@ -213,7 +210,6 @@ export const STAGES: readonly Stage[] = [
   },
   {
     from: 25,
-    flavor: '작은 불씨를 뱉기 시작했다.',
     tint: '#ec7a5a',
     sprite: CHILD,
     palette: {
@@ -223,7 +219,6 @@ export const STAGES: readonly Stage[] = [
   },
   {
     from: 40,
-    flavor: '눈빛이 달라졌다.',
     tint: '#dc4a34',
     sprite: TEEN,
     palette: {
@@ -233,7 +228,6 @@ export const STAGES: readonly Stage[] = [
   },
   {
     from: 55,
-    flavor: '날개 그림자가 화면을 덮는다.',
     tint: '#c0282a',
     sprite: ADULT,
     palette: {
@@ -243,7 +237,6 @@ export const STAGES: readonly Stage[] = [
   },
   {
     from: 70,
-    flavor: '비늘 틈으로 붉은 빛이 샌다. 무언가 잘못됐다.',
     tint: '#a01020',
     sprite: ELDER,
     palette: {
@@ -253,7 +246,6 @@ export const STAGES: readonly Stage[] = [
   },
   {
     from: 85,
-    flavor: '눈이 너무 많다. 지금 압축하라.',
     tint: '#7a0010',
     sprite: ULTIMATE,
     palette: {
@@ -264,9 +256,6 @@ export const STAGES: readonly Stage[] = [
 ]
 
 export const LAST_STAGE = STAGES.length - 1
-
-/** Only the appearance changes per stage; there is a single name. */
-export const DRAGON_NAME = '컨텍스트 드래곤'
 
 /** Context usage (0~100) → stage number (0~6). */
 export function stageOf(percent: number): number {

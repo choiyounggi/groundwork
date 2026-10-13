@@ -1,4 +1,6 @@
 import type { Todo, TodoStatus } from '../types'
+import { MESSAGES } from './i18n'
+import type { Messages } from './i18n'
 
 export type Progress = { done: number; total: number; percent: number }
 
@@ -26,13 +28,13 @@ export function barFromPercent(percent: number, width: number): { filled: string
 }
 
 /** Shows only elapsed time instead of a clock time, so output does not depend on the time zone. */
-export function elapsed(ms: number): string {
+export function elapsed(ms: number, m: Messages = MESSAGES.en): string {
   const seconds = Math.max(0, Math.round(ms / 1000))
-  if (seconds < 60) return `${seconds}초`
+  if (seconds < 60) return m.seconds(seconds)
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}분 ${seconds % 60}초`
+  if (minutes < 60) return m.minutes(minutes, seconds % 60)
 
-  return `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`
+  return m.hours(Math.floor(minutes / 60), minutes % 60)
 }
 
 export function firstLine(text: string, max: number): string {

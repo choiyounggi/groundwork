@@ -10,17 +10,6 @@ export function isAgentFinished(status: AgentRowStatus): boolean {
   return !LIVE.has(status)
 }
 
-export const AGENT_LABEL: Record<AgentRowStatus, string> = {
-  pending: '대기',
-  running: '진행 중',
-  waiting: '대기',
-  idle: '유휴',
-  completed: '완료',
-  failed: '실패',
-  killed: '중지',
-  gone: '종료',
-}
-
 /**
  * Merges a `$.agent.list()` snapshot into state. New agents are attached to `anchorTurnId` (the turn in progress at
  * that moment), and agents that were alive but vanished from the list are marked `gone`. If nothing changed,
@@ -70,15 +59,15 @@ export type Step = { title: string; status: TodoStatus }
 
 /** Validates the steps tool input. Returns a reason string if the format is wrong. */
 export function parseSteps(raw: unknown): Step[] | string {
-  if (!Array.isArray(raw)) return 'steps 는 배열이어야 합니다.'
+  if (!Array.isArray(raw)) return 'steps must be an array.'
   const steps: Step[] = []
   for (const [i, item] of raw.entries()) {
     const s = typeof item === 'object' && item !== null ? (item as Record<string, unknown>) : {}
     const title = typeof s.title === 'string' ? s.title.trim() : ''
     const status = s.status
-    if (title === '') return `steps[${i}].title 이 비어 있습니다.`
+    if (title === '') return `steps[${i}].title is empty.`
     if (status !== 'pending' && status !== 'in_progress' && status !== 'completed') {
-      return `steps[${i}].status 는 pending·in_progress·completed 중 하나여야 합니다.`
+      return `steps[${i}].status must be one of pending, in_progress, completed.`
     }
     steps.push({ title, status })
   }

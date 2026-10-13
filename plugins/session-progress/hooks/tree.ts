@@ -1,11 +1,11 @@
 import type { AgentRow, Turn } from '../types'
-import { AGENT_LABEL, isAgentFinished } from './agents'
+import { isAgentFinished } from './agents'
 import { briefTitle, elapsed, ICON } from './format'
+import { MESSAGES } from './i18n'
+import type { Messages } from './i18n'
 
 /** Expanded node id. A task is `t:<turnId>`. */
 export type NodeId = string
-
-const STEP_LABEL = { completed: '완료', in_progress: '진행 중', pending: '대기' } as const
 
 /** Spinner frames that animate the in-progress row marker (one braille cell wide). */
 export const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const
@@ -30,7 +30,7 @@ export type TreeRow = {
 type Node = Omit<TreeRow, 'depth' | 'guide' | 'isOpen'> & { children: Node[] }
 
 /** `live` is the in-progress marker: uses the spinner frame if one is given, otherwise ▶. */
-function agentNode(agent: AgentRow, live: string): Node {
+function agentNode(agent: AgentRow, live: string, m: Messages): Node {
   const isDone = isAgentFinished(agent.status)
 
   return {
@@ -39,7 +39,7 @@ function agentNode(agent: AgentRow, live: string): Node {
     mark: isDone ? (agent.status === 'completed' ? '✔' : '✖') : live,
     markColor: isDone ? (agent.status === 'completed' ? 'success' : 'warning') : 'claude',
     text: `${agent.type}: ${agent.description}`,
-    meta: AGENT_LABEL[agent.status],
+    meta: m.agentStatus[agent.status],
     children: [],
   }
 }
@@ -48,9 +48,16 @@ function agentNode(agent: AgentRow, live: string): Node {
  * One task: expanding it shows the task's plan steps (each with its status) and the agents it delegated work to in
  * parallel.
  */
-function turnNode(turn: Turn, index: number, agents: readonly AgentRow[], now: number, live: string): Node {
+function turnNode(
+  turn: Turn,
+  index: number,
+  agents: readonly AgentRow[],
+  now: number,
+  live: string,
+  m: Messages,
+): Node {
   const isRunning = turn.endedAt === undefined
-  const took = elapsed((turn.endedAt ?? now) - turn.startedAt)
+  const took = elapsed((turn.endedAt ?? now) - turn.startedAt, m)
   const steps = turn.steps ?? []
   const done = steps.filter(s => s.status === 'completed').length
   const children: Node[] = [
@@ -61,12 +68,12 @@ function turnNode(turn: Turn, index: number, agents: readonly AgentRow[], now: n
       mark: isRunning && s.status === 'in_progress' ? live : ICON[s.status],
       ...(s.status === 'completed' ? { markColor: 'success' } : s.status === 'in_progress' ? { markColor: 'claude' } : {}),
       text: s.title,
-      meta: STEP_LABEL[s.status],
+      meta: m.stepStatus[s.status],
       children: [],
     })),
-    ...agents.filter(a => a.turnId === turn.id && a.type !== '').map(a => agentNode(a, live)),
+    ...agents.filter(a => a.turnId === turn.id && a.type !== '').map(a => agentNode(a, live, m)),
   ]
-  const time = isRunning ? `진행 중 ${took}` : turn.outcome === 'answer' ? took : `${took} · 중단`
+  const time = isRunning ? m.running(took) : turn.outcome === 'answer' ? took : m.interrupted(took)
 
   return {
     key: `t:${turn.id}`,
@@ -90,6 +97,7 @@ export function buildHistoryRows(
   now: number,
   /** Spinner frame to draw on in-progress rows. If absent, a static ▶ is used. */
   live = '▶',
+  m: Messages = MESSAGES.en,
 ): TreeRow[] {
   const rows: TreeRow[] = []
   const walk = (nodes: readonly Node[], depth: number, lasts: readonly boolean[]) => {
@@ -103,7 +111,7 @@ export function buildHistoryRows(
       if (isOpen) walk(children, depth + 1, depth === 0 ? [] : [...lasts, isLast])
     })
   }
-  const roots = turns.map((turn, i) => turnNode(turn, i, agents, now, live))
+  const roots = turns.map((turn, i) => turnNode(turn, i, agents, now, live, m))
   walk(roots, 0, [])
 
   return rows

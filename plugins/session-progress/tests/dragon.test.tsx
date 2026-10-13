@@ -5,7 +5,6 @@ import {
   CANVAS_H,
   CANVAS_ROWS,
   CANVAS_W,
-  DRAGON_NAME,
   MORPH_MS,
   STAGES,
   encodeCells,
@@ -14,12 +13,13 @@ import {
   stageOf,
   stageProgress,
 } from '../hooks/dragon'
+import { MESSAGES } from '../hooks/i18n'
 
 const PANE_VIEW = {
   component: 'Pane',
   requestId: 'session-progress',
   props: {
-    title: '세션 진행 현황',
+    title: 'Session progress',
     isFocused: true,
     bodyColumns: 100,
     placement: 'dock',
@@ -54,7 +54,10 @@ describe('dragon stages', () => {
     ]
     for (const [percent, stage] of cases) expect([percent, stageOf(percent)]).toEqual([percent, stage])
     expect(STAGES.length).toBe(7)
-    expect(DRAGON_NAME).toBe('컨텍스트 드래곤')
+    expect(MESSAGES.en.dragonName).toBe('Context Dragon')
+    expect(MESSAGES.ko.dragonName).toBe('컨텍스트 드래곤')
+    expect(MESSAGES.en.dragonFlavor.length).toBe(7)
+    expect(MESSAGES.ko.dragonFlavor.length).toBe(7)
   })
 
   test('progress toward the next stage, clamped, full at the last stage', async () => {
@@ -141,12 +144,9 @@ describe('dragon in the pane', () => {
     setup(on)
     await $.session.measure(measure(47))
     const ui = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE_VIEW })
-    expect(await ui.find({ type: 'Text', text: '컨텍스트 드래곤 Lv.4' })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /컨텍스트 47%/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: 'Context Dragon Lv.4' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /context 47%/ })).toBeDefined()
     expect(await ui.find({ type: 'Raster' })).toBeDefined()
-    // There are no per-stage names — there is a single name (DRAGON_NAME) and only the level changes.
-    const texts = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('\n')
-    expect(texts).not.toMatch(/새끼용|어린이용|청소년용|성인용|궁극체/)
     await ui.unmount()
   })
 
@@ -200,16 +200,16 @@ describe('dragon in the pane', () => {
     await $.session.measure(measure(30))
     await $.session.measure(measure(60))
     const ui = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE_VIEW })
-    expect(await ui.find({ type: 'Text', text: '✦ 변신 중 ✦' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '✦ evolving ✦' })).toBeDefined()
     await ui.unmount()
     // The stage stays the same until the morph finishes.
     await clock.advance(MORPH_MS / 2)
     const midway = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE_VIEW })
-    expect(await midway.find({ type: 'Text', text: '컨텍스트 드래곤 Lv.5' })).toBeUndefined()
+    expect(await midway.find({ type: 'Text', text: 'Context Dragon Lv.5' })).toBeUndefined()
     await midway.unmount()
     await clock.advance(MORPH_MS)
     const after = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE_VIEW })
-    expect(await after.find({ type: 'Text', text: '컨텍스트 드래곤 Lv.5' })).toBeDefined()
+    expect(await after.find({ type: 'Text', text: 'Context Dragon Lv.5' })).toBeDefined()
     await after.unmount()
   })
 
@@ -219,7 +219,7 @@ describe('dragon in the pane', () => {
     await $.session.measure(measure(90))
     const ui = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...SHORT_PANE })
     expect(await ui.find({ type: 'Raster' })).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: /컨텍스트 드래곤 Lv\.7 · 컨텍스트 90%/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Context Dragon Lv\.7 · context 90%/ })).toBeDefined()
     await ui.unmount()
   })
 })
@@ -258,14 +258,14 @@ describe('regrow button', () => {
     const { calls, toasts } = setup(on, { tokensAfter: 8_000 })
     await $.session.measure(measure(90))
     const ui = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE_VIEW })
-    expect(await ui.find({ type: 'Text', text: '컨텍스트 드래곤 Lv.7' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: 'Context Dragon Lv.7' })).toBeDefined()
     await ui.press({ key: 'dragon-regrow' })
     await clock.settle()
     expect(calls).toEqual(['compact'])
-    expect(toasts.some(t => t.includes('압축했습니다'))).toBe(true)
+    expect(toasts.some(t => t.includes('compacted'))).toBe(true)
     // 8k / 200k = 4% → the motion regressing back into an egg starts.
-    expect(await ui.find({ type: 'Text', text: '✧ 퇴화 중 ✧' })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /컨텍스트 4%/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '✧ devolving ✧' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /context 4%/ })).toBeDefined()
     expect(await ui.find({ key: 'dragon-regrow' })).toBeDefined()
     await ui.unmount()
   })
@@ -279,7 +279,7 @@ describe('regrow button', () => {
     await ui.press({ key: 'dragon-regrow' })
     await clock.settle()
     expect(calls).toEqual([])
-    expect(await ui.find({ type: 'Text', text: '⏳ 작업이 끝나면 다시 키웁니다' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '⏳ regrows when this task ends' })).toBeDefined()
     expect(await ui.find({ key: 'dragon-regrow' })).toBeUndefined()
     await $.turn.complete({ turnId: 'T1', reason: 'answer', answer: '', durationMs: 1, isAborted: false })
     await clock.advance(1_000)
@@ -297,7 +297,7 @@ describe('regrow button', () => {
     await clock.settle()
     expect(calls).toEqual(['compact'])
     expect(toasts.some(t => t.includes('요약할 대화가 없습니다'))).toBe(true)
-    expect(await ui.find({ type: 'Text', text: '컨텍스트 드래곤 Lv.5' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: 'Context Dragon Lv.5' })).toBeDefined()
     expect(await ui.find({ key: 'dragon-regrow' })).toBeDefined()
     await ui.unmount()
   })

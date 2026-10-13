@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
 import { barCells, elapsed, firstLine, fromTodoWrite, progressOf } from '../hooks/format'
+import { MESSAGES } from '../hooks/i18n'
 
 const BAND = { component: 'AbovePrompt', props: {
     hasSurvey: false,
@@ -16,7 +17,7 @@ const PANE_VIEW = {
   component: 'Pane',
   requestId: 'session-progress',
   props: {
-    title: '세션 진행 현황',
+    title: 'Session progress',
     isFocused: true,
     bodyColumns: 100,
     placement: 'dock',
@@ -46,10 +47,13 @@ describe('format', () => {
   })
 
   test('elapsed and firstLine', async () => {
-    expect(elapsed(42_000)).toBe('42초')
-    expect(elapsed(125_000)).toBe('2분 5초')
-    expect(elapsed(3_660_000)).toBe('1시간 1분')
-    expect(elapsed(-5)).toBe('0초')
+    expect(elapsed(42_000)).toBe('42s')
+    expect(elapsed(125_000)).toBe('2m 5s')
+    expect(elapsed(3_660_000)).toBe('1h 1m')
+    expect(elapsed(-5)).toBe('0s')
+    expect(elapsed(42_000, MESSAGES.ko)).toBe('42초')
+    expect(elapsed(125_000, MESSAGES.ko)).toBe('2분 5초')
+    expect(elapsed(3_660_000, MESSAGES.ko)).toBe('1시간 1분')
     expect(firstLine('\n\n  hello world  \nsecond', 100)).toBe('hello world')
     expect(firstLine('abcdefghij', 5)).toBe('abcd…')
   })
@@ -109,7 +113,7 @@ describe('hooks', () => {
     })
     const ui = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE_VIEW })
     expect(await ui.find({ type: 'Text', text: /0\/1/ })).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: '아직 보고된 단계가 없습니다.' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: 'No steps reported yet.' })).toBeDefined()
     await ui.unmount()
   })
 })

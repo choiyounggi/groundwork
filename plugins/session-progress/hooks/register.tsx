@@ -1,8 +1,8 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, Timer } from 'claude-code'
+import type { EngineInterface, PluginOptions, Register, Timer } from 'claude-code'
 
 import type { AgentRow, ContextUsage, Todo, TodoStatus, Turn } from '../types'
-import { AGENT_LABEL, isAgentFinished, mergeAgents, parseSteps } from './agents'
+import { isAgentFinished, mergeAgents, parseSteps } from './agents'
 import {
   barFromPercent,
   combineTodos,
@@ -10,19 +10,18 @@ import {
   cleanTitle,
   compactText,
   elapsed,
-  firstLine,
   fromTodoWrite,
   ICON,
   progressOf,
 } from './format'
-import { CANVAS_ROWS, CANVAS_W, DRAGON_NAME, MORPH_MS, STAGES, TICK_MS, sceneCells, shortTokens, stageOf, stageProgress } from './dragon'
-import { PHASE_LABEL } from './orchestration'
+import { CANVAS_ROWS, CANVAS_W, MORPH_MS, STAGES, TICK_MS, sceneCells, shortTokens, stageOf, stageProgress } from './dragon'
+import { MESSAGES, pickLanguage } from './i18n'
+import type { Lang, Messages } from './i18n'
 import { buildHistoryRows, cellWidth, cutToWidth, layoutHistoryLines, spinnerAt } from './tree'
 import { findRunRoot, readRun } from './run-reader'
 import type { RunIo } from './run-reader'
 
 const PANE = 'session-progress'
-const TITLE = '세션 진행 현황'
 const MAX_TURNS = 200
 const STEPS_TOOL = 'mcp__session-progress__steps'
 /**
@@ -57,15 +56,61 @@ const DRAGON_KEY = 'dragon'
 const DRAGON_ICON = ['🥚', '🐣', '🦎', '🐉', '🐉', '🐲', '👁']
 
 /**
- * Guide for reporting steps. Some environments (e.g. an organization policy plugin) skip user-tier prompt.compose
- * hooks, so the guide also rides on each prompt's context — the model reads it, the person never sees it.
+ * Guide for reporting steps. It goes into the system prompt (prompt.compose); some setups (an organization policy
+ * plugin, for one) skip user-tier compose hooks, so until the system prompt is seen to carry it the guide rides on
+ * each prompt's context instead — the model reads it, the person never sees it.
  */
 const STEPS_GUIDE = [
-  `[진행 현황] 이 요청을 처리하는 데 도구를 쓴다면, 착수하기 전에 ${STEPS_TOOL} 로 계획을 2~7개의 짧은 단계`,
-  '(사용자 언어, 첫 단계는 in_progress)로 보고하고, 단계가 시작되거나 끝날 때마다 전체 목록을 다시 보낸다.',
-  '최종 답을 쓰기 전에 끝낸 단계를 모두 completed 로 보고한다. 도구 없이 바로 답하는 요청이면 보고하지 않는다.',
-  '서브에이전트에서는 호출하지 않는다.',
+  `[Session progress] If you will use tools for this request, first report your plan with ${STEPS_TOOL} as 2-7 short`,
+  'steps in the user’s language, the first one in_progress. Send the whole list again whenever a step starts or',
+  'finishes, and report every finished step as completed before your final answer. Skip it for a request you answer',
+  'without tools. Subagents do not call it.',
 ].join(' ')
+/** Set when a prompt.compose hook of this module added the guide; until then prompt.submit carries it. */
+let isGuideInSystemPrompt = false
+
+/** The plugin's userConfig fields (plugin.json), defaults filled in by the engine. */
+type Config = {
+  language: string
+  openPaneOnStart: boolean
+  reportSteps: boolean
+  summarizeTitles: boolean
+  showDragon: boolean
+}
+
+function readConfig(options: PluginOptions): Config {
+  const flag = (key: string) => options[key] !== false
+
+  return {
+    language: typeof options.language === 'string' ? options.language : 'auto',
+    openPaneOnStart: flag('openPaneOnStart'),
+    reportSteps: flag('reportSteps'),
+    summarizeTitles: flag('summarizeTitles'),
+    showDragon: flag('showDragon'),
+  }
+}
+
+let config: Config = readConfig({})
+/** Everything the person reads, in their language. session.start picks it; English until then. */
+let m: Messages = MESSAGES.en
+
+async function detectLanguage($: EngineInterface): Promise<Lang> {
+  if (config.language === 'en' || config.language === 'ko') return config.language
+  let fromSettings: unknown
+  let fromEnv: string | undefined
+  try {
+    fromSettings = ((await $.settings.read()) as { language?: unknown }).language
+  } catch {
+    // No settings to read (a test, an SDK host): fall through to the locale.
+  }
+  try {
+    fromEnv = (await $.env.get('LC_ALL')) || (await $.env.get('LANG'))
+  } catch {
+    // Same.
+  }
+
+  return pickLanguage(config.language, fromSettings, fromEnv)
+}
 
 /**
  * Whether this session receives steps through the mod's steps tool (when no TodoWrite/Task tools exist).
@@ -76,7 +121,7 @@ let isReportingSteps = false
 let isSummarizing = false
 const TITLE_MAX_CHARS = 40
 const TITLE_SYSTEM =
-  '사용자의 작업 요청을 작업 목록의 제목으로 간추린다. 요청과 같은 언어로, 15~25자 안팎의 명사구 한 줄만 출력한다. 따옴표·마침표·설명 없이 제목만.'
+  'Shorten the user’s request into a title for a task list, in the language of the request: one noun phrase of at most 40 characters (15-25 in Korean, Japanese or Chinese) on one line. Output the title only — no quotes, no period, no explanation.'
 
 const STATUS_COLOR: Record<TodoStatus, string | undefined> = {
   completed: 'success',
@@ -89,7 +134,7 @@ function isTodoStatus(value: unknown): value is TodoStatus {
 }
 
 function shortPath(path: string): string {
-  return path.replace(/^\/Users\/[^/]+/, '~')
+  return path.replace(/^\/(?:Users|home)\/[^/]+/, '~')
 }
 
 function runIo($: EngineInterface): RunIo {
@@ -201,8 +246,9 @@ let dragonTimer: Timer | undefined
  */
 async function syncFastTimers($: EngineInterface): Promise<void> {
   const isOpen = await read($, isPaneOpen)
-  if (isOpen && dragonTimer === undefined) dragonTimer = $.clock.every(TICK_MS, () => void tickDragon($))
-  if (!isOpen && dragonTimer !== undefined) {
+  const shouldTick = isOpen && config.showDragon
+  if (shouldTick && dragonTimer === undefined) dragonTimer = $.clock.every(TICK_MS, () => void tickDragon($))
+  if (!shouldTick && dragonTimer !== undefined) {
     dragonTimer.cancel()
     dragonTimer = undefined
   }
@@ -311,7 +357,7 @@ async function regrowDragon($: EngineInterface): Promise<void> {
   if ((await read($, dragonCompact)) !== 'idle') return
   if ((await read($, turns)).some(t => t.endedAt === undefined)) {
     await update($, dragonCompact, () => 'queued')
-    $.ui.toast('지금 작업이 끝나면 컨텍스트를 압축하고 용을 다시 키웁니다.')
+    $.ui.toast(m.toastQueued)
 
     return
   }
@@ -324,7 +370,7 @@ async function runCompact($: EngineInterface): Promise<void> {
   try {
     const result = await $.session.compact()
     if (result.skip !== undefined) {
-      $.ui.toast(`다시 키우기를 건너뛰었습니다: ${result.skip}`)
+      $.ui.toast(m.toastSkipped(result.skip))
     } else {
       // Right after compaction no usage arrives until the next response —
       // regress the dragon at once from the compaction result's token count.
@@ -336,26 +382,26 @@ async function runCompact($: EngineInterface): Promise<void> {
           window: usage.window,
         })
       }
-      $.ui.toast('컨텍스트를 압축했습니다. 이어서 작업하면 됩니다.')
+      $.ui.toast(m.toastCompacted)
     }
     await update($, dragonCompact, () => 'idle')
   } catch {
     // If the next turn started meanwhile and compaction was rejected, retry when that turn ends.
     const isWorking = (await read($, turns)).some(t => t.endedAt === undefined)
     await update($, dragonCompact, () => (isWorking ? 'queued' : 'idle'))
-    if (!isWorking) $.ui.toast('컨텍스트를 압축하지 못했습니다. /compact 로 직접 압축해 주세요.')
+    if (!isWorking) $.ui.toast(m.toastFailed)
   }
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  config = readConfig(options)
+
   on('session.start', async ($, e, next) => {
-    await $.command.register({
-      name: 'progress',
-      description: '세션 작업 진행률·오케스트레이션 워커 진행률·작업 이력을 pane 으로 연다',
-    })
+    m = MESSAGES[await detectLanguage($)]
+    await $.command.register({ name: 'progress', description: m.commandDescription })
     // Open a tool for the model to report steps only in sessions without TodoWrite/Task tools.
     const names = (await $.tool.list()).map(t => t.name)
-    if (!names.includes('TodoWrite') && !names.includes('TaskCreate')) {
+    if (config.reportSteps && !names.includes('TodoWrite') && !names.includes('TaskCreate')) {
       await $.tool.register({
         name: 'steps',
         description:
@@ -384,7 +430,7 @@ export const register: Register = on => {
     void refreshOrchestration($)
     $.clock.every(5000, () => void refreshOrchestration($))
     $.clock.every(2000, () => void refreshAgents($))
-    $.clock.every(1500, () => void summarizeNextTitle($))
+    if (config.summarizeTitles) $.clock.every(1500, () => void summarizeNextTitle($))
     isWorking = (await read($, turns)).some(t => t.endedAt === undefined)
     await syncFastTimers($)
     try {
@@ -401,8 +447,8 @@ export const register: Register = on => {
     // a narrow terminal reopens it on the first prompt (prompt.submit).
     // Do not await the result so session start is not blocked while waiting
     // (once placed, the ui.open hook sets isPaneOpen).
-    if (e.isInteractive && e.surface !== null && !(await read($, isPaneDismissed))) {
-      void $.ui.open({ id: PANE, title: TITLE })
+    if (config.openPaneOnStart && e.isInteractive && e.surface !== null && !(await read($, isPaneDismissed))) {
+      void $.ui.open({ id: PANE, title: m.paneTitle })
     }
 
     return next(e)
@@ -411,9 +457,20 @@ export const register: Register = on => {
   on('command.run', { command: 'progress' }, async $ => {
     await update($, isPaneDismissed, () => false)
     void refreshOrchestration($)
-    await $.ui.open({ id: PANE, title: TITLE })
+    await $.ui.open({ id: PANE, title: m.paneTitle })
 
-    return { text: '세션 진행 현황을 열었습니다.' }
+    return { text: m.commandOpened }
+  })
+
+  // The step guide goes into the system prompt of every request that offers the steps tool. A teammate's prompt
+  // gets none (its steps are not recorded), and an analysis render (/context) sends nothing, so it adds the
+  // section without counting as the guide having reached a real request.
+  on('prompt.compose', async ($, e, next) => {
+    const composed = await next(e)
+    if (!isReportingSteps || !e.tools.includes(STEPS_TOOL) || e.traits.includes('teammate')) return composed
+    if (!e.traits.includes('analysis')) isGuideInSystemPrompt = true
+
+    return { sections: [...composed.sections, { id: 'session-progress:steps', text: STEPS_GUIDE, scope: 'session' }] }
   })
 
   // Re-measure the dragon's stage whenever context moves.
@@ -451,15 +508,17 @@ export const register: Register = on => {
     // If the person closed it, leave it closed until /progress reopens it.
     // The prompt and the guide (context) must go through even if the pane fails to open, so swallow the failure.
     try {
-      if (e.origin.kind === 'composer' && !(await read($, isPaneDismissed))) {
+      if (config.openPaneOnStart && e.origin.kind === 'composer' && !(await read($, isPaneDismissed))) {
         const ours = (await $.ui.panes()).find(pane => pane.id === PANE)
-        if (ours?.isPlaced !== true) void $.ui.open({ id: PANE, title: TITLE })
+        if (ours?.isPlaced !== true) void $.ui.open({ id: PANE, title: m.paneTitle })
       }
     } catch {
       // Sessions with no screen to draw on (-p, SDK), etc.
     }
 
-    return isReportingSteps ? next({ ...e, context: [...(e.context ?? []), STEPS_GUIDE] }) : next(e)
+    return isReportingSteps && !isGuideInSystemPrompt
+      ? next({ ...e, context: [...(e.context ?? []), STEPS_GUIDE] })
+      : next(e)
   })
 
   on('turn.start', async ($, e, next) => {
@@ -484,12 +543,12 @@ export const register: Register = on => {
 
     const turn: Turn = {
       id: e.turnId,
-      text: compactText(e.text, MAX_TITLE_CHARS) || '(빈 요청)',
+      text: compactText(e.text, MAX_TITLE_CHARS) || m.emptyRequest,
       startedAt: now,
       tools: 0,
     }
     await update($, turns, list => [...list, turn].slice(-MAX_TURNS))
-    if (needsSummary(turn.text)) await update($, pendingTitles, ids => [...ids, turn.id].slice(-20))
+    if (config.summarizeTitles && needsSummary(turn.text)) await update($, pendingTitles, ids => [...ids, turn.id].slice(-20))
     isWorking = true
     await syncFastTimers($)
     // Redraw once more so the new task row shows immediately even if the subscription is broken (per turn, so cheap).
@@ -521,7 +580,7 @@ export const register: Register = on => {
     const agentId = e.agentId
 
     if (String(e.tool) === STEPS_TOOL) {
-      if (agentId !== undefined) return { result: '서브에이전트의 단계는 진행 현황에 기록하지 않습니다.' }
+      if (agentId !== undefined) return { result: 'Subagent steps are not recorded in session progress.' }
       const steps = parseSteps((e as Record<string, unknown>).steps)
       if (typeof steps === 'string') return { deny: steps }
       const now = await $.clock.now()
@@ -530,7 +589,7 @@ export const register: Register = on => {
       await snapshotSteps($, saved)
       const { done, total } = progressOf(saved)
 
-      return { result: `진행 현황에 기록했습니다: ${done}/${total}` }
+      return { result: `Recorded in session progress: ${done}/${total}` }
     }
 
     if (agentId === undefined) {
@@ -644,11 +703,12 @@ export const register: Register = on => {
       const live = chainAgents.find(a => !isAgentFinished(a.status))
       rows.push(
         <Box flexDirection="row">
-          <Text bold>에이전트 </Text>
+          <Text bold>{m.agentsLabel}</Text>
           {bar(Math.round((done / chainAgents.length) * 100), barWidth)}
           <Text wrap="truncate-end">
             {' '}
-            {done}/{chainAgents.length} 완료{live ? ` · ▶ ${live.type}: ${live.description}` : ''}
+            {m.agentsDone(done, chainAgents.length)}
+            {live ? ` · ▶ ${live.type}: ${live.description}` : ''}
           </Text>
         </Box>,
       )
@@ -659,11 +719,11 @@ export const register: Register = on => {
       const doneCount = run.workers.filter(w => w.phase === 'done' || w.phase === 'merged' || w.phase === 'approved').length
       rows.push(
         <Box flexDirection="row">
-          <Text bold>오케스트레이션 </Text>
+          <Text bold>{m.runLabel}</Text>
           {bar(run.percent, barWidth)}
           <Text wrap="truncate-end">
             {' '}
-            {run.percent}% · 워커 {run.workers.length}개 (✔{doneCount}
+            {m.runSummary(run.percent, run.workers.length)} (✔{doneCount}
             {failed > 0 ? ` ✖${failed}` : ''})
           </Text>
         </Box>,
@@ -678,15 +738,15 @@ export const register: Register = on => {
             {bar(w.percent, Math.max(6, barWidth - 6), w.phase === 'failed' ? 'error' : 'success')}
             <Text wrap="truncate-end">
               {' '}
-              {String(w.percent).padStart(3)}% {PHASE_LABEL[w.phase] ?? w.phase}
-              {w.gates.length > 0 ? ` · 게이트 ${w.gates.filter(g => g.isDone).length}/${w.gates.length}` : ''}
-              {w.updatedAt === undefined ? '' : ` · ${elapsed(now - w.updatedAt)} 전`}
+              {String(w.percent).padStart(3)}% {m.phase[w.phase] ?? w.phase}
+              {w.gates.length > 0 ? ` · ${m.gates(w.gates.filter(g => g.isDone).length, w.gates.length)}` : ''}
+              {w.updatedAt === undefined ? '' : ` · ${m.ago(elapsed(now - w.updatedAt, m))}`}
             </Text>
           </Box>,
         )
       }
       if (shown.length < run.workers.length) {
-        rows.push(<Text dimColor>  … 워커 {run.workers.length - shown.length}개 더 — 목록에서 보기</Text>)
+        rows.push(<Text dimColor>  {m.moreWorkers(run.workers.length - shown.length)}</Text>)
       }
     }
 
@@ -724,9 +784,9 @@ export const register: Register = on => {
     // One element = one row. Count which row the task history list starts at to decide the wheel scroll position.
     const out = []
     const progress = progressOf(list)
-    out.push(<Text bold>할 일 진행률 (지금 작업)</Text>)
+    out.push(<Text bold>{m.planHeader}</Text>)
     if (list.length === 0) {
-      out.push(<Text dimColor>아직 보고된 단계가 없습니다.</Text>)
+      out.push(<Text dimColor>{m.noSteps}</Text>)
     } else {
       out.push(
         <Box flexDirection="row">
@@ -756,14 +816,14 @@ export const register: Register = on => {
       out.push(<Text> </Text>)
       out.push(
         <Text bold wrap="truncate-end">
-          오케스트레이션 · {shortPath(run.root)}
-          {run.isActive ? '' : ' (최근 활동 없음)'}
+          {m.runHeader(shortPath(run.root))}
+          {run.isActive ? '' : m.runIdle}
         </Text>,
       )
       out.push(
         <Box flexDirection="row">
           {bar(run.percent, barWidth)}
-          <Text> 전체 {run.percent}% · 워커 {run.workers.length}개</Text>
+          <Text> {m.runOverall(run.percent, run.workers.length)}</Text>
         </Box>,
       )
       for (const w of run.workers) {
@@ -771,9 +831,9 @@ export const register: Register = on => {
         const passed = w.gates.filter(g => g.isDone).length
         const cells = barFromPercent(w.percent, Math.max(6, barWidth - 10))
         const meta = cutToWidth(
-          `${PHASE_LABEL[w.phase] ?? w.phase}${w.gates.length > 0 ? ` · 게이트 ${passed}/${w.gates.length}` : ''}${
-            w.attempt === undefined ? '' : ` · 시도 ${w.attempt}`
-          }${w.updatedAt === undefined ? '' : ` · ${elapsed(now - w.updatedAt)} 전`}`,
+          `${m.phase[w.phase] ?? w.phase}${w.gates.length > 0 ? ` · ${m.gates(passed, w.gates.length)}` : ''}${
+            w.attempt === undefined ? '' : ` · ${m.attempt(w.attempt)}`
+          }${w.updatedAt === undefined ? '' : ` · ${m.ago(elapsed(now - w.updatedAt, m))}`}`,
           Math.max(4, columns - cellWidth(w.task) - cells.filled.length - cells.empty.length - 12),
         )
         out.push(
@@ -790,15 +850,16 @@ export const register: Register = on => {
           </Button>,
         )
         if (!isOpen) continue
-        if (w.session !== undefined) out.push(<Text dimColor>    세션 {w.session}</Text>)
+        if (w.session !== undefined) out.push(<Text dimColor>    {m.session(w.session)}</Text>)
         if (w.error !== undefined) {
           out.push(
             <Text color="error" wrap="truncate-end">
-              {'    '}오류: {w.error}
+              {'    '}
+              {m.error(w.error)}
             </Text>,
           )
         }
-        if (w.gates.length === 0) out.push(<Text dimColor>    체크리스트 없음 (게이트 원장이 아직 없습니다)</Text>)
+        if (w.gates.length === 0) out.push(<Text dimColor>    {m.noGates}</Text>)
         for (const g of w.gates) {
           out.push(
             <Text color={g.isDone ? 'success' : undefined} dimColor={!g.isDone} wrap="truncate-end">
@@ -813,7 +874,7 @@ export const register: Register = on => {
     // Task history: expand the tree (newest task on top) into rows and show it through a fixed-height window.
     // A long title wraps at the right edge so it is fully visible.
     // The fixed-height window and scrolling count in screen lines.
-    const lines = layoutHistoryLines(buildHistoryRows(history, agentRows, open, now, live), columns)
+    const lines = layoutHistoryLines(buildHistoryRows(history, agentRows, open, now, live, m), columns)
     const height = Math.max(4, Math.min(LIST_ROWS, (e.viewport?.rows ?? 40) - out.length - 8))
     const maxOffset = Math.max(0, lines.length - height)
     // The list is ascending, so by default it sticks to the bottom (newest).
@@ -823,7 +884,8 @@ export const register: Register = on => {
     out.push(<Text> </Text>)
     out.push(
       <Text bold>
-        작업 이력 ({history.length}건)<Text dimColor> · 작업을 누르면 계획 단계가 펼쳐집니다</Text>
+        {m.historyHeader(history.length)}
+        <Text dimColor>{m.historyHint}</Text>
       </Text>,
     )
     historyView = { top: out.length, height, total: lines.length, paneOffset: e.props.scroll.offset }
@@ -853,7 +915,7 @@ export const register: Register = on => {
     })
     out.push(
       <Box flexDirection="column" height={height} overflow="hidden">
-        {lines.length === 0 ? <Text dimColor>아직 진행된 작업이 없습니다.</Text> : visible}
+        {lines.length === 0 ? <Text dimColor>{m.noHistory}</Text> : visible}
       </Box>,
     )
     if (lines.length > height) {
@@ -870,10 +932,10 @@ export const register: Register = on => {
             label="▼"
             onPress={() => update($, historyOffset, o => Math.max(0, Math.min(o, maxOffset) - step))}
           />
-          <Button key="h-top" label="최신으로" onPress={() => update($, historyOffset, () => 0)} />
+          <Button key="h-top" label={m.latest} onPress={() => update($, historyOffset, () => 0)} />
           <Text dimColor>
             {' '}
-            {offset + 1}–{Math.min(lines.length, offset + height)} / {lines.length}줄 · 목록 위에서 휠로 스크롤
+            {m.scrollInfo(offset + 1, Math.min(lines.length, offset + height), lines.length)}
           </Text>
         </Box>,
       )
@@ -883,11 +945,11 @@ export const register: Register = on => {
       out.push(<Text> </Text>)
       out.push(
         <Box>
-          {open.size > 0 && <Button key="collapse" label="이력 모두 접기" onPress={() => update($, openNodes, () => [])} />}
+          {open.size > 0 && <Button key="collapse" label={m.collapseHistory} onPress={() => update($, openNodes, () => [])} />}
           {run !== null && (
             <Button
               key="expand"
-              label={openWorkers.length > 0 ? '워커 모두 접기' : '워커 모두 펼치기'}
+              label={openWorkers.length > 0 ? m.collapseWorkers : m.expandWorkers}
               onPress={() => update($, expanded, () => (openWorkers.length > 0 ? [] : run.workers.map(w => w.task)))}
             />
           )}
@@ -899,35 +961,49 @@ export const register: Register = on => {
     // Each element of out is one row, except the history list Box, which is height rows.
     const room = e.props.scroll.bodyRows - (out.length - 1 + height) - 1
     const usage = await read($, contextUsage)
+    const percentText = usage === null ? m.measuring : `${usage.percent}%`
+    const tokensText =
+      usage === null ? '' : <Text dimColor> · {shortTokens(usage.tokens)}/{shortTokens(usage.window)}</Text>
+    if (!config.showDragon) {
+      isDragonMounted = false
+      out.push(<Text> </Text>)
+      out.push(
+        <Text wrap="truncate-end">
+          {m.context(percentText)}
+          {tokensText}
+        </Text>,
+      )
+
+      return <Box flexDirection="column">{out}</Box>
+    }
     const shownStage = (await read($, dragonStage)) ?? 0
     const morph = await read($, dragonMorph)
     const stage = STAGES[shownStage] ?? STAGES[0]
     const tint = stage?.tint ?? 'claude'
     const next = STAGES[shownStage + 1]
-    const percentText = usage === null ? '측정 전' : `${usage.percent}%`
     const compactState = await read($, dragonCompact)
     const regrow =
       compactState === 'idle' ? (
-        <Button key="dragon-regrow" label="다시 키우기" onPress={() => regrowDragon($)} />
+        <Button key="dragon-regrow" label={m.regrow} onPress={() => regrowDragon($)} />
       ) : (
-        <Text color={tint}>{compactState === 'queued' ? '⏳ 작업이 끝나면 다시 키웁니다' : '⟳ 다시 키우는 중…'}</Text>
+        <Text color={tint}>{compactState === 'queued' ? m.regrowQueued : m.regrowRunning}</Text>
       )
     const els = $.ui.resolve(e)
     const Raster = 'Raster' in els ? els.Raster : undefined
     isDragonMounted = false
     if (Raster !== undefined && room >= CANVAS_ROWS) {
       const title =
-        morph === null ? `${DRAGON_NAME} Lv.${shownStage + 1}` : morph.to > morph.from ? '✦ 변신 중 ✦' : '✧ 퇴화 중 ✧'
+        morph === null ? `${m.dragonName} Lv.${shownStage + 1}` : morph.to > morph.from ? m.evolving : m.devolving
       const info = [
         <Text bold color={tint}>
           {title}
         </Text>,
         <Text>
-          컨텍스트 {percentText}
-          {usage === null ? '' : <Text dimColor> · {shortTokens(usage.tokens)}/{shortTokens(usage.window)}</Text>}
+          {m.context(percentText)}
+          {tokensText}
         </Text>,
         next === undefined ? (
-          <Text color={tint}>더는 자랄 곳이 없다</Text>
+          <Text color={tint}>{m.maxed}</Text>
         ) : (
           <Box flexDirection="row">
             <Text dimColor>→ Lv.{shownStage + 2} </Text>
@@ -935,7 +1011,7 @@ export const register: Register = on => {
           </Box>
         ),
         <Text dimColor italic wrap="wrap">
-          {stage?.flavor}
+          {m.dragonFlavor[shownStage] ?? ''}
         </Text>,
         regrow,
       ]
@@ -971,8 +1047,8 @@ export const register: Register = on => {
       out.push(
         <Box flexDirection="row">
           <Text color={tint} wrap="truncate-end">
-            {DRAGON_ICON[shownStage] ?? '🐉'} {DRAGON_NAME} Lv.{shownStage + 1} · 컨텍스트 {percentText}
-            {morph === null ? '' : morph.to > morph.from ? ' · 변신 중' : ' · 퇴화 중'}{' '}
+            {DRAGON_ICON[shownStage] ?? '🐉'} {m.dragonName} Lv.{shownStage + 1} · {m.context(percentText)}
+            {morph === null ? '' : morph.to > morph.from ? m.evolvingShort : m.devolvingShort}{' '}
           </Text>
           {regrow}
         </Box>,
