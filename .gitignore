@@ -4,3 +4,6 @@
 node_modules/
 .orchestration/
 .worktrees/
+
+# session-progress: types the engine lays beside a loaded mod (regenerated per build)
+plugins/session-progress/.claude-plugin/types/
