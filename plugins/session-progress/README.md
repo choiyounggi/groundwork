@@ -25,29 +25,12 @@ API moves between releases, so an older build may not load it.
 
 ## What it shows
 
-```text
-Plan (this task)
-████████████████████████░░░░░░ 4/5 (80%)
-✔ Read the config
-✔ Patch the parser
-⠙ Running the tests
+![The session-progress pane in a live Claude Code session: a finished three-step plan, a dev-loop run with four workers, two tasks in the history, and the Context Dragon at Lv.2](assets/screenshot-en.png)
 
-dev-loop run · ~/src/app
-███████████████████░░░░░░░░░░░ 64% overall · 3 workers
-▸ task-1 ██████████░░░░░░░░░░ 50% implementing · gates 1/2 · 40s ago
-▸ task-2 █████████░░░░░░░░░░░ 43% rework · try 2 · 1m 5s ago
-▸ task-3 ████████████████████ 100% done · 3m 2s ago
-
-History (2) · press a task to unfold its plan
-▸ ✔ #1 Bump the dev-loop pin                           3/3 · 1m 2s
-▸ ⠙ #2 Fix the flaky upload test                       running 3m 10s
-
-        ▄▀▀▄  ▄▀▀▀▀▀▀▀            Context Dragon Lv.2
-        ▀▀▀▀▀▀▀▀▀▀▀▀▀             context 21% · 210k/1.0M
-      ▀▀▄ ▀▀▀▀▀▀▀▀▀▀▀             → Lv.3 ███████░░░
-       ▀▀▀▀▀▀▀▀▀▀▀▀▀▄             Peep… no, ROAR?
-        ▀▀▀▀▀▀▀▀▀▀▀▀              [ Regrow ]
-```
+A live session, captured from the terminal: the request's plan is done (3/3),
+the checkout holds a dev-loop run with four workers (written by dev-loop's own
+scripts for this demo), the history lists both tasks, and the context is at 16%,
+so the dragon has just hatched.
 
 - **Plan bar** follows `TodoWrite` / `TaskCreate` when your session has them.
   When it has neither, the plugin registers a small `steps` tool and asks the
@@ -62,9 +45,29 @@ History (2) · press a task to unfold its plan
   worker's `.dev-loop/gates/<task>.md`. Worker sessions and repos without a run
   show nothing here. Without dev-loop the section never appears.
 - **Context Dragon** reads the session's context usage and moves through seven
-  stages, from egg (under 10%) to the last form (85% and up). **Regrow** runs a
-  compaction and the dragon shrinks back to what the summary left; pressed
-  during a task, it waits for the task to end.
+  stages, from egg (under 10%) to the last form (85% and up). It blinks, breathes
+  fire from Lv.4, sheds embers from Lv.6, and changes with a flash between
+  stages. **Regrow** runs a compaction and the dragon shrinks back to what the
+  summary left; pressed during a task, it waits for the task to end.
+
+![The seven stages of the Context Dragon, from an egg to a many-eyed last form, with the context range of each](assets/dragon-stages-en.png)
+
+## How it is built
+
+session-progress is a **mod**: a plugin whose hooks are TypeScript functions the
+engine calls in-process (`hooks/hooks.json` names `register.tsx`), not shell
+commands. Every part of the pane is one of those hooks:
+
+| Feature | What it hooks or calls |
+|---|---|
+| The pane and the band above the prompt | `ui.render` on `Pane` and `AbovePrompt`, opened with `$.ui.open`; `ui.open`, `ui.close` and `ui.scroll` for its own scrolling list |
+| The dragon | one `Raster` (two pixels per cell as half blocks), repainted by `$.ui.blit` on a 140 ms timer while the pane is open |
+| Plan bar | `tool.call` on `TodoWrite` / `TaskCreate` / `TaskUpdate`, or a `steps` tool of its own from `$.tool.register` |
+| Step guide | a section added in `prompt.compose`, with `prompt.submit` context as the fallback |
+| Task history | `turn.start` / `turn.complete`, subagents from `$.agent.list`, short titles from `$.model.complete` (Haiku) |
+| dev-loop run | `$.fs` reads of `.orchestration/` and each worker's `.dev-loop/gates/` |
+| Context and Regrow | `session.measure` for usage, `$.session.compact` for the button |
+| State | `$.state` atoms, so a hot reload keeps the history |
 
 ## Configure
 

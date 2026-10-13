@@ -154,7 +154,13 @@ with the context window. Never writes to your project; English and Korean.
 /plugin install session-progress@groundwork
 ```
 
-Needs a Claude Code build with mod support (verified on 2.1.296).
+<p align="center">
+  <img src="plugins/session-progress/assets/screenshot-en.png" alt="The session-progress pane in a live session: plan bar, dev-loop run, task history and the Context Dragon" width="560">
+</p>
+
+Built as a Claude Code mod (function hooks, not shell commands); see
+[how it is built](plugins/session-progress/README.md#how-it-is-built). Needs a
+Claude Code build with mod support (verified on 2.1.296).
 
 ## Why not just a starter template?
 
