@@ -40,9 +40,14 @@ so the dragon has just hatched.
   Long prompts get a short title from a one-off Haiku call (see
   `summarizeTitles`).
 - **dev-loop run** appears only in the coordinator's checkout of a
-  [dev-loop](https://github.com/choiyounggi/dev-loop) orchestration: it reads
-  `.orchestration/graph.json`, `.orchestration/status/<task>.json` and each
-  worker's `.dev-loop/gates/<task>.md`. Worker sessions and repos without a run
+  [dev-loop](https://github.com/choiyounggi/dev-loop) orchestration. It reads
+  `.orchestration/graph.json`, each task's `.orchestration/status/<task>.json`
+  together with the worker's own copy in its worktree (merged the way
+  `collect-status.sh` merges them, so a worker shows its progress before the
+  coordinator collects it), and the gate ledgers in each worker's
+  `.dev-loop/gates/`. While a worker builds (under `plan_ready`, as dev-loop
+  writes it), the gates it has passed move its percent; it counts the ledgers
+  written so far, so it is approximate. Worker sessions and repos without a run
   show nothing here. Without dev-loop the section never appears.
 - **Context Dragon** reads the session's context usage and moves through seven
   stages, from egg (under 10%) to the last form (85% and up). It blinks, breathes
@@ -65,7 +70,7 @@ commands. Every part of the pane is one of those hooks:
 | Plan bar | `tool.call` on `TodoWrite` / `TaskCreate` / `TaskUpdate`, or a `steps` tool of its own from `$.tool.register` |
 | Step guide | a section added in `prompt.compose`, with `prompt.submit` context as the fallback |
 | Task history | `turn.start` / `turn.complete`, subagents from `$.agent.list`, short titles from `$.model.complete` (Haiku) |
-| dev-loop run | `$.fs` reads of `.orchestration/` and each worker's `.dev-loop/gates/` |
+| dev-loop run | `$.fs` reads of `.orchestration/`, the workers' copies under `.worktrees/`, and their `.dev-loop/gates/` |
 | Context and Regrow | `session.measure` for usage, `$.session.compact` for the button |
 | State | `$.state` atoms, so a hot reload keeps the history |
 

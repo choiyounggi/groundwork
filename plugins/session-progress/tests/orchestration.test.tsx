@@ -2,9 +2,9 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 
 import { mergeAgents, parseSteps } from '../hooks/agents'
 import {
-  gateFileFor,
+  gateFilesFor,
   isRunActive,
-  newer,
+  collected,
   parseGates,
   parseGraphIds,
   parseStatus,
@@ -56,8 +56,11 @@ describe('orchestration parsing', () => {
   test('phase percent interpolates gates only while building', async () => {
     expect(workerPercent('pending', [])).toBe(0)
     expect(workerPercent('plan_ready', [])).toBe(29)
+    // a real run builds under plan_ready, so its gates move it too
+    expect(workerPercent('plan_ready', gates(2, 4))).toBe(36)
     expect(workerPercent('implementing', gates(2, 4))).toBe(50)
-    expect(workerPercent('rework', gates(4, 4))).toBe(57)
+    // rework is not interpolated: the last round's ledgers are already met
+    expect(workerPercent('rework', gates(4, 4))).toBe(43)
     expect(workerPercent('impl_done', gates(1, 4))).toBe(57)
     expect(workerPercent('done', [])).toBe(100)
     expect(workerPercent('failed', [])).toBe(0)
@@ -71,19 +74,31 @@ describe('orchestration parsing', () => {
       { id: 'G3', title: 'hygiene', isDone: true },
     ])
     expect(parseGates('')).toEqual([])
-    expect(gateFileFor('t2', ['t2-secrets.md', 't2.md'])).toBe('t2.md')
-    expect(gateFileFor('t2', ['t20.md', 't2-secrets.md'])).toBe('t2-secrets.md')
-    expect(gateFileFor('t2', ['t20.md', 'notes.txt'])).toBeUndefined()
+    expect(gateFilesFor('t2', ['t2-secrets.md', 't2.md'])).toEqual(['t2.md'])
+    expect(gateFilesFor('t2', ['t2-secrets.md', 't20.md', 't2-api.md'])).toEqual(['t2-api.md', 't2-secrets.md'])
+    // A worker worktree holds one task, so ledgers named after loop-implement's own plan tasks are all its own.
+    expect(gateFilesFor('t2', ['02-ui.md', '01-api.md', 'notes.txt'])).toEqual(['01-api.md', '02-ui.md'])
+    expect(gateFilesFor('t2', [])).toEqual([])
   })
 
-  test('status records: newer wins, broken files are null', async () => {
-    const a = parseStatus('{"task":"t1","phase":"planning","updatedAt":"2026-08-12T04:00:00Z","attempt":null}')
-    const b = parseStatus('{"task":"t1","phase":"implementing","updatedAt":"2026-08-12T05:00:00Z","attempt":"2"}')
-    expect(a).toEqual({ task: 't1', phase: 'planning', updatedAt: Date.parse('2026-08-12T04:00:00Z') })
+  test('status records merge as collect-status.sh collects them; broken files are null', async () => {
+    const at = (iso: string) => `"updatedAt":"2026-08-12T${iso}Z"`
+    const a = parseStatus(`{"task":"t1","phase":"plan_ready",${at('04:00:00')},"attempt":null}`)
+    const b = parseStatus(`{"task":"t1","phase":"impl_done",${at('05:00:00')},"attempt":"2"}`)
+    expect(a).toEqual({ task: 't1', phase: 'plan_ready', updatedAt: Date.parse('2026-08-12T04:00:00Z') })
     expect(b?.attempt).toBe(2)
-    expect(newer(a, b)?.phase).toBe('implementing')
-    expect(newer(b, a)?.phase).toBe('implementing')
-    expect(newer(null, a)).toBe(a)
+    // a strictly newer worker copy wins, and the canonical attempt survives it
+    const reworked = parseStatus(`{"task":"t1","phase":"rework",${at('04:00:00')},"attempt":3}`)
+    const workerCopy = parseStatus(`{"task":"t1","phase":"impl_done",${at('06:00:00')},"attempt":0}`)
+    expect(collected(reworked, workerCopy)).toMatchObject({ phase: 'impl_done', attempt: 3 })
+    // an equal or older worker copy loses
+    expect(collected(b, a)?.phase).toBe('impl_done')
+    expect(collected(a, parseStatus(`{"task":"t1","phase":"impl_done",${at('04:00:00')}}`))?.phase).toBe('plan_ready')
+    // a canonical done or failed is never overwritten
+    const done = parseStatus(`{"task":"t1","phase":"done",${at('01:00:00')}}`)
+    expect(collected(done, workerCopy)?.phase).toBe('done')
+    expect(collected(null, a)).toBe(a)
+    expect(collected(a, null)).toBe(a)
     expect(parseStatus('{ not json')).toBeNull()
     expect(parseStatus('{"phase":"done"}')).toBeNull()
     expect(parseGraphIds('{"tasks":[{"id":"t1"},{"id":"t2"},{"x":1}]}')).toEqual(['t1', 't2'])
@@ -144,8 +159,13 @@ describe('reading a dev-loop run', () => {
       return text
     },
     listFiles: async path => {
+      if (path === `${WT}/.orchestration/status`) return ['t2.json']
       if (path !== `${WT}/.dev-loop/gates`) throw new Error(`ENOENT ${path}`)
       return ['t2-feature.md']
+    },
+    listDirs: async path => {
+      if (path !== `${ROOT}/.worktrees`) throw new Error(`ENOENT ${path}`)
+      return ['wt-t2']
     },
     exists: async path => path in files,
     cwd: async () => cwd,

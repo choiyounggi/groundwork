@@ -65,11 +65,16 @@ const boot = (
     if (text === undefined) throw new Error(`ENOENT ${e.path}`)
     return { value: text }
   })
-  on('fs.list', (_$, e) => ({
-    value: Object.keys(files)
-      .filter(path => path.startsWith(`${e.path}/`))
-      .map(path => ({ name: path.slice(e.path.length + 1), kind: 'file' as const, size: 0, mtimeMs: 0, isLink: false })),
-  }))
+  // Immediate children only: a name with a further slash is a directory on the way to a file.
+  on('fs.list', (_$, e) => {
+    const children = new Map<string, 'file' | 'dir'>()
+    for (const path of Object.keys(files)) {
+      if (!path.startsWith(`${e.path}/`)) continue
+      const [name, ...rest] = path.slice(e.path.length + 1).split('/')
+      children.set(name as string, rest.length > 0 ? 'dir' : 'file')
+    }
+    return { value: [...children].map(([name, kind]) => ({ name, kind, size: 0, mtimeMs: 0, isLink: false })) }
+  })
   on('agent.list', () => ({ value: [] }))
   on('ui.blit', () => ({ value: {} }))
   on('ui.invalidate', () => ({ value: undefined }))
@@ -158,8 +163,8 @@ describe('language', () => {
     const ui = await $.ui.mount({ plugin: 'session-progress', surface: 'terminal', ...PANE_VIEW })
     expect(await ui.find({ type: 'Text', text: /5초\s*$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /오케스트레이션 · \/run/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /구현 중 · 게이트 1\/2/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /재작업 · 시도 2/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /계획 완료 · 게이트 1\/2/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /재작업 · 게이트 1\/2 · 시도 2/ })).toBeDefined()
     await ui.unmount()
   })
 
