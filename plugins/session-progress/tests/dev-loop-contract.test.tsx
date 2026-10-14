@@ -56,10 +56,11 @@ describe('dev-loop contract', () => {
     // task-1: the worker's own plan_ready copy is newer than the pre-seeded pending, and it builds under plan_ready,
     // so its ledger (named after loop-implement's plan task, 01-api.md) moves its percent: (2 + 1/2) / 7.
     // task-2: the coordinator's rework is newer than the worker's impl_done; its gates still come from the worker's
-    // worktree although the canonical record now names the coordinator's own path: (3 + 1/2) / 7.
+    // worktree although the canonical record now names the coordinator's own path; rework itself is not
+    // interpolated: 3 / 7.
     expect(run?.workers.map(w => [w.task, w.phase, w.percent])).toEqual([
       ['task-1', 'plan_ready', 36],
-      ['task-2', 'rework', 50],
+      ['task-2', 'rework', 43],
       ['task-3', 'done', 100],
     ])
     expect(run?.workers.map(w => w.session)).toEqual(['worker-1', 'worker-2', 'worker-3'])
@@ -71,7 +72,7 @@ describe('dev-loop contract', () => {
     expect(run?.workers[1]?.attempt).toBe(2)
     expect(run?.workers[1]?.error).toBe('tests failed')
     expect(run?.workers[0]?.updatedAt).toBe(Date.parse('2026-01-01T00:00:01Z'))
-    expect(run?.percent).toBe(62)
+    expect(run?.percent).toBe(60)
     expect(run?.isActive).toBe(true)
   })
 
@@ -81,6 +82,42 @@ describe('dev-loop contract', () => {
     )
     const run = await readRun(io(ROOT, preSeedOnly), ROOT, NOW)
     expect(run?.workers[0]).toMatchObject({ task: 'task-1', phase: 'pending', percent: 0 })
+  })
+
+  test('a stale copy from an older run lends no gates to a worker that has not written yet', async () => {
+    const files: Record<string, string> = {}
+    for (const [path, text] of Object.entries(DEV_LOOP_RUN)) {
+      if (!path.startsWith('/run/.worktrees/task-1/')) files[path] = text
+    }
+    // an older run's worktree for the same task id, finished and fully gated, from before this run's pre-seed
+    files['/run/.worktrees/old-task-1/.orchestration/status/task-1.json'] =
+      '{"task":"task-1","phase":"impl_done","updatedAt":"2025-12-31T00:00:00Z","worktree":"/run/.worktrees/old-task-1"}'
+    files['/run/.worktrees/old-task-1/.dev-loop/gates/task-1.md'] = '- [x] G1: old\n- [x] G2: old\n'
+    const run = await readRun(io(ROOT, files), ROOT, NOW)
+    expect(run?.workers[0]).toMatchObject({ task: 'task-1', phase: 'pending', gates: [] })
+  })
+
+  test('the coordinator under another spelling of its path is never read as a worker', async () => {
+    const files: Record<string, string> = { ...DEV_LOOP_RUN }
+    // the coordinator's rework recorded its resolved path, while the session spells the root through a link
+    files['/run/.orchestration/status/task-2.json'] = (DEV_LOOP_RUN['/run/.orchestration/status/task-2.json'] as string)
+      .replace('"worktree": "/run"', '"worktree": "/private/run"')
+    files['/private/run/.dev-loop/gates/01-unrelated.md'] = '- [x] G1: x\n- [x] G2: x\n- [x] G3: x\n'
+    const linked: RunIo = { ...io(ROOT, files), realPath: async p => p.replace(/^\/private\/run/, '/run') }
+    const run = await readRun(linked, ROOT, NOW)
+    expect(run?.workers[1]?.gates.map(g => g.title)).toEqual(['the endpoint answers', 'the copy reads well'])
+  })
+
+  test('copies merge one after another in folder order, as collect-status.sh does', async () => {
+    const files: Record<string, string> = {
+      '/run/.orchestration/graph.json': '{"tasks":[{"id":"t"}]}',
+      '/run/.orchestration/status/t.json': '{"task":"t","phase":"pending","updatedAt":"2026-01-01T00:00:00Z"}',
+      '/run/.worktrees/a/.orchestration/status/t.json': '{"task":"t","phase":"failed","updatedAt":"2026-01-01T00:00:01Z"}',
+      '/run/.worktrees/b/.orchestration/status/t.json': '{"task":"t","phase":"impl_done","updatedAt":"2026-01-01T00:00:02Z"}',
+    }
+    // a: failed is newer than pending and lands; b: newer still, but a landed failed is never overwritten
+    const run = await readRun(io(ROOT, files), ROOT, NOW)
+    expect(run?.workers[0]?.phase).toBe('failed')
   })
 
   test('a status file without its phase is skipped as unreadable, not shown as a phase', async () => {

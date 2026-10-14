@@ -142,13 +142,19 @@ function runIo($: EngineInterface): RunIo {
     read: path => $.fs.read(path),
     listFiles: async path => (await $.fs.list(path)).filter(f => f.kind === 'file').map(f => f.name),
     listDirs: async path => (await $.fs.list(path)).filter(f => f.kind === 'dir').map(f => f.name),
+    realPath: async path => (await $.fs.stat(path, { resolve: true })).realPath ?? path,
     exists: path => $.fs.exists(path),
     cwd: () => $.session.cwd(),
     root: () => $.session.root(),
   }
 }
 
+/** One run read at a time: a slow read (many worktrees) must not stack up behind the 5 s timer. */
+let isReadingRun = false
+
 async function refreshOrchestration($: EngineInterface): Promise<void> {
+  if (isReadingRun) return
+  isReadingRun = true
   try {
     const io = runIo($)
     const root = await findRunRoot(io)
@@ -158,6 +164,8 @@ async function refreshOrchestration($: EngineInterface): Promise<void> {
     }
   } catch {
     // The state file may be mid-write; read it again next cycle.
+  } finally {
+    isReadingRun = false
   }
 }
 

@@ -59,7 +59,8 @@ describe('orchestration parsing', () => {
     // a real run builds under plan_ready, so its gates move it too
     expect(workerPercent('plan_ready', gates(2, 4))).toBe(36)
     expect(workerPercent('implementing', gates(2, 4))).toBe(50)
-    expect(workerPercent('rework', gates(4, 4))).toBe(57)
+    // rework is not interpolated: the last round's ledgers are already met
+    expect(workerPercent('rework', gates(4, 4))).toBe(43)
     expect(workerPercent('impl_done', gates(1, 4))).toBe(57)
     expect(workerPercent('done', [])).toBe(100)
     expect(workerPercent('failed', [])).toBe(0)
@@ -77,7 +78,6 @@ describe('orchestration parsing', () => {
     expect(gateFilesFor('t2', ['t2-secrets.md', 't20.md', 't2-api.md'])).toEqual(['t2-api.md', 't2-secrets.md'])
     // A worker worktree holds one task, so ledgers named after loop-implement's own plan tasks are all its own.
     expect(gateFilesFor('t2', ['02-ui.md', '01-api.md', 'notes.txt'])).toEqual(['01-api.md', '02-ui.md'])
-    expect(gateFilesFor('t2', ['plan-A-t2.md', 'plan-B-t2.md'])).toEqual([])
     expect(gateFilesFor('t2', [])).toEqual([])
   })
 
@@ -159,6 +159,7 @@ describe('reading a dev-loop run', () => {
       return text
     },
     listFiles: async path => {
+      if (path === `${WT}/.orchestration/status`) return ['t2.json']
       if (path !== `${WT}/.dev-loop/gates`) throw new Error(`ENOENT ${path}`)
       return ['t2-feature.md']
     },

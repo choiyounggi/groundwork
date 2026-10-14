@@ -27,12 +27,14 @@ export function isTerminal(phase: string): boolean {
 /**
  * While a worker builds, interpolates toward the next stage by the fraction of gates passed. A real run builds under
  * `plan_ready`: dev-loop's session prompt writes `plan_ready`, waits for approval, then implements and next writes
- * `impl_done` (no caller writes `implementing`).
+ * `impl_done` (no caller writes `implementing`). loop-implement writes each plan task's ledger as it reaches that
+ * task, so the fraction counts the ledgers written so far and can step back when a new one appears. `rework` is not
+ * interpolated: the last round's ledgers are already met and say nothing about the new round.
  */
 export function workerPercent(phase: string, gates: readonly Gate[]): number {
   const score = PHASE_SCORE[phase]
   if (score === undefined) return 0
-  const isBuilding = phase === 'plan_ready' || phase === 'implementing' || phase === 'rework'
+  const isBuilding = phase === 'plan_ready' || phase === 'implementing'
   const within =
     isBuilding && gates.length > 0 ? gates.filter(g => g.isDone).length / gates.length : 0
 
@@ -61,11 +63,11 @@ export function parseGates(markdown: string): Gate[] {
  * The ledgers to read for one task, from the names in its worktree's `.dev-loop/gates`. dev-loop's orchestrator names
  * a task's ledger `<task>.md` (or `<task>-<slug>.md`); loop-implement inside the worker may instead name it after its
  * own plan task (`01-api.md`). When nothing carries the task id, every ledger in the worktree is the task's, because
- * a worker worktree holds one task (gates are only ever read from a worker's worktree, never the coordinator's).
- * Planning ledgers (`plan-A-*`, `plan-B-*`) are never gates.
+ * a worker worktree holds one task (gates are only ever read from a worker's worktree, never the coordinator's) —
+ * the same set dev-loop's own Stop hook reads. A reused worktree can still hold an older run's ledgers.
  */
 export function gateFilesFor(task: string, names: readonly string[]): string[] {
-  const ledgers = [...names].filter(n => n.endsWith('.md') && !/^plan-[AB]-/.test(n)).sort()
+  const ledgers = [...names].filter(n => n.endsWith('.md')).sort()
   if (ledgers.includes(`${task}.md`)) return [`${task}.md`]
   const named = ledgers.filter(n => n.startsWith(`${task}-`))
   if (named.length > 0) return named

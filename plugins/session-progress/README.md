@@ -45,9 +45,10 @@ so the dragon has just hatched.
   together with the worker's own copy in its worktree (merged the way
   `collect-status.sh` merges them, so a worker shows its progress before the
   coordinator collects it), and the gate ledgers in each worker's
-  `.dev-loop/gates/`. While a worker builds, the gates it has passed move its
-  percent. Worker sessions and repos without a run show nothing here. Without
-  dev-loop the section never appears.
+  `.dev-loop/gates/`. While a worker builds (under `plan_ready`, as dev-loop
+  writes it), the gates it has passed move its percent; it counts the ledgers
+  written so far, so it is approximate. Worker sessions and repos without a run
+  show nothing here. Without dev-loop the section never appears.
 - **Context Dragon** reads the session's context usage and moves through seven
   stages, from egg (under 10%) to the last form (85% and up). It blinks, breathes
   fire from Lv.4, sheds embers from Lv.6, and changes with a flash between
