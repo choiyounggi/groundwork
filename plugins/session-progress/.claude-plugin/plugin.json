@@ -2,7 +2,7 @@
   "name": "session-progress",
   "displayName": "session-progress",
   "description": "A pane for your Claude Code session: a plan bar for the current request, a history of every task with its steps and subagents, the live progress of a dev-loop orchestration run, and a pixel dragon that grows with your context window. A mod (function hooks); it reads and never writes to your project.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "author": {
     "name": "choiyounggi",
     "url": "https://github.com/choiyounggi"

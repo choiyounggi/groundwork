@@ -40,9 +40,12 @@ API 는 릴리스마다 바뀌므로 그보다 오래된 빌드에서는 로드�
   프롬프트는 Haiku 를 한 번 불러 짧은 제목으로 줄입니다(`summarizeTitles` 참고).
 - **dev-loop 실행**은 [dev-loop](https://github.com/choiyounggi/dev-loop)
   오케스트레이션의 코디네이터 체크아웃에서만 나타납니다. `.orchestration/graph.json`,
-  `.orchestration/status/<task>.json`, 각 워커의 `.dev-loop/gates/<task>.md` 를
-  읽습니다. 워커 세션이나 실행이 없는 레포에서는 아무것도 보이지 않고, dev-loop 를
-  쓰지 않으면 이 영역은 나타나지 않습니다.
+  태스크마다의 `.orchestration/status/<task>.json` 과 워커 워크트리 안의 자기 사본
+  (`collect-status.sh` 와 같은 규칙으로 합칩니다 — 그래서 코디네이터가 모으기 전에도
+  워커의 진행이 보입니다), 그리고 각 워커의 `.dev-loop/gates/` 게이트 원장을 읽습니다.
+  워커가 구현하는 동안에는 통과한 게이트만큼 진행률이 올라갑니다. 워커 세션이나 실행이
+  없는 레포에서는 아무것도 보이지 않고, dev-loop 를 쓰지 않으면 이 영역은 나타나지
+  않습니다.
 - **컨텍스트 드래곤**은 세션의 컨텍스트 사용량을 읽어 7단계를 거칩니다. 10% 미만은
   알, 85% 이상은 마지막 형태입니다. 눈을 깜빡이고, Lv.4 부터 불을 뿜고, Lv.6 부터
   불씨를 흩뿌리며, 단계가 바뀔 때는 섬광과 함께 변신합니다. **다시 키우기**는 대화를
@@ -64,7 +67,7 @@ session-progress 는 **mod** 입니다. 셸 명령이 아니라 엔진이 프로
 | 계획 진행 바 | `TodoWrite`·`TaskCreate`·`TaskUpdate` 의 `tool.call`, 없으면 `$.tool.register` 로 만든 자체 `steps` 도구 |
 | 단계 보고 안내 | `prompt.compose` 에 섹션 추가, 대비책으로 `prompt.submit` context |
 | 작업 이력 | `turn.start`·`turn.complete`, 서브에이전트는 `$.agent.list`, 짧은 제목은 `$.model.complete`(Haiku) |
-| dev-loop 실행 | `.orchestration/` 과 각 워커의 `.dev-loop/gates/` 를 `$.fs` 로 읽기 |
+| dev-loop 실행 | `.orchestration/`, `.worktrees/` 아래 워커 사본, 그 워커들의 `.dev-loop/gates/` 를 `$.fs` 로 읽기 |
 | 컨텍스트와 다시 키우기 | 사용량은 `session.measure`, 버튼은 `$.session.compact` |
 | 상태 | `$.state` 아톰. 그래서 핫 리로드해도 이력이 남음 |
 

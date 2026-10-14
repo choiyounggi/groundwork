@@ -22,6 +22,15 @@ const io = (cwd: string, files: Readonly<Record<string, string>> = DEV_LOOP_RUN)
     if (names.length === 0) throw new Error(`ENOENT ${dir}`)
     return names
   },
+  listDirs: async dir => {
+    const names = new Set(
+      Object.keys(files)
+        .filter(path => path.startsWith(`${dir}/`) && path.slice(dir.length + 1).includes('/'))
+        .map(path => path.slice(dir.length + 1).split('/')[0] as string),
+    )
+    if (names.size === 0) throw new Error(`ENOENT ${dir}`)
+    return [...names]
+  },
   exists: async path => path in files,
   cwd: async () => cwd,
   root: async () => cwd,
@@ -30,20 +39,27 @@ const io = (cwd: string, files: Readonly<Record<string, string>> = DEV_LOOP_RUN)
 describe('dev-loop contract', () => {
   test('the fixture holds every file the reader opens', async () => {
     expect(Object.keys(DEV_LOOP_RUN).sort()).toEqual([
-      '/run/.dev-loop/gates/task-1.md',
       '/run/.orchestration/graph.json',
       '/run/.orchestration/status/task-1.json',
       '/run/.orchestration/status/task-2.json',
       '/run/.orchestration/status/task-3.json',
+      '/run/.worktrees/task-1/.dev-loop/gates/01-api.md',
+      '/run/.worktrees/task-1/.orchestration/status/task-1.json',
+      '/run/.worktrees/task-2/.dev-loop/gates/task-2.md',
+      '/run/.worktrees/task-2/.orchestration/status/task-2.json',
     ])
   })
 
-  test('a run written by dev-loop is found from the coordinator checkout and read whole', async () => {
+  test('a run as dev-loop writes it: worker copies, coordinator rework, ledgers in the worktrees', async () => {
     expect(await findRunRoot(io(ROOT))).toBe(ROOT)
     const run = await readRun(io(ROOT), ROOT, NOW)
+    // task-1: the worker's own plan_ready copy is newer than the pre-seeded pending, and it builds under plan_ready,
+    // so its ledger (named after loop-implement's plan task, 01-api.md) moves its percent: (2 + 1/2) / 7.
+    // task-2: the coordinator's rework is newer than the worker's impl_done; its gates still come from the worker's
+    // worktree although the canonical record now names the coordinator's own path: (3 + 1/2) / 7.
     expect(run?.workers.map(w => [w.task, w.phase, w.percent])).toEqual([
-      ['task-1', 'implementing', 50],
-      ['task-2', 'rework', 43],
+      ['task-1', 'plan_ready', 36],
+      ['task-2', 'rework', 50],
       ['task-3', 'done', 100],
     ])
     expect(run?.workers.map(w => w.session)).toEqual(['worker-1', 'worker-2', 'worker-3'])
@@ -51,11 +67,20 @@ describe('dev-loop contract', () => {
       ['G1', 'the endpoint answers', true],
       ['G2', 'the copy reads well', false],
     ])
+    expect(run?.workers[1]?.gates.map(g => g.isDone)).toEqual([true, false])
     expect(run?.workers[1]?.attempt).toBe(2)
     expect(run?.workers[1]?.error).toBe('tests failed')
-    expect(run?.workers[0]?.updatedAt).toBe(Date.parse('2026-01-01T00:00:00Z'))
-    expect(run?.percent).toBe(64)
+    expect(run?.workers[0]?.updatedAt).toBe(Date.parse('2026-01-01T00:00:01Z'))
+    expect(run?.percent).toBe(62)
     expect(run?.isActive).toBe(true)
+  })
+
+  test('before a worker writes anything, the pre-seed shows it pending', async () => {
+    const preSeedOnly = Object.fromEntries(
+      Object.entries(DEV_LOOP_RUN).filter(([path]) => !path.includes('/.orchestration/status/') || !path.includes('/.worktrees/')),
+    )
+    const run = await readRun(io(ROOT, preSeedOnly), ROOT, NOW)
+    expect(run?.workers[0]).toMatchObject({ task: 'task-1', phase: 'pending', percent: 0 })
   })
 
   test('a status file without its phase is skipped as unreadable, not shown as a phase', async () => {

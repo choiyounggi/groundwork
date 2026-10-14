@@ -24,11 +24,15 @@ export function isTerminal(phase: string): boolean {
   return TERMINAL.has(phase)
 }
 
-/** During the implementation stage, interpolates toward the next stage by the fraction of gates passed. */
+/**
+ * While a worker builds, interpolates toward the next stage by the fraction of gates passed. A real run builds under
+ * `plan_ready`: dev-loop's session prompt writes `plan_ready`, waits for approval, then implements and next writes
+ * `impl_done` (no caller writes `implementing`).
+ */
 export function workerPercent(phase: string, gates: readonly Gate[]): number {
   const score = PHASE_SCORE[phase]
   if (score === undefined) return 0
-  const isBuilding = phase === 'implementing' || phase === 'rework'
+  const isBuilding = phase === 'plan_ready' || phase === 'implementing' || phase === 'rework'
   const within =
     isBuilding && gates.length > 0 ? gates.filter(g => g.isDone).length / gates.length : 0
 
@@ -53,11 +57,20 @@ export function parseGates(markdown: string): Gate[] {
   return gates
 }
 
-/** A gate ledger file name is a loop-implement task id, so it is either `<task>.md` or `<task>-<slug>.md`. */
-export function gateFileFor(task: string, names: readonly string[]): string | undefined {
-  if (names.includes(`${task}.md`)) return `${task}.md`
+/**
+ * The ledgers to read for one task, from the names in its worktree's `.dev-loop/gates`. dev-loop's orchestrator names
+ * a task's ledger `<task>.md` (or `<task>-<slug>.md`); loop-implement inside the worker may instead name it after its
+ * own plan task (`01-api.md`). When nothing carries the task id, every ledger in the worktree is the task's, because
+ * a worker worktree holds one task (gates are only ever read from a worker's worktree, never the coordinator's).
+ * Planning ledgers (`plan-A-*`, `plan-B-*`) are never gates.
+ */
+export function gateFilesFor(task: string, names: readonly string[]): string[] {
+  const ledgers = [...names].filter(n => n.endsWith('.md') && !/^plan-[AB]-/.test(n)).sort()
+  if (ledgers.includes(`${task}.md`)) return [`${task}.md`]
+  const named = ledgers.filter(n => n.startsWith(`${task}-`))
+  if (named.length > 0) return named
 
-  return [...names].sort().find(n => n.startsWith(`${task}-`) && n.endsWith('.md'))
+  return ledgers
 }
 
 export type StatusRecord = {
@@ -96,14 +109,18 @@ export function parseStatus(text: string): StatusRecord | null {
 }
 
 /**
- * Picks whichever of the main copy and the worker worktree copy has the newer updatedAt (same rule as
- * collect-status.sh).
+ * Merges the coordinator's canonical record with the worker's own copy by the rule `collect-status.sh` applies when it
+ * collects: a canonical `done`/`failed` is never overwritten, a worker copy wins only when strictly newer, and the
+ * canonical `attempt` survives (only the coordinator's rework counts tries, on the canonical copy).
  */
-export function newer(a: StatusRecord | null, b: StatusRecord | null): StatusRecord | null {
-  if (a === null) return b
-  if (b === null) return a
+export function collected(canonical: StatusRecord | null, worker: StatusRecord | null): StatusRecord | null {
+  if (canonical === null) return worker
+  if (worker === null) return canonical
+  if (canonical.phase === 'done' || canonical.phase === 'failed') return canonical
+  if ((worker.updatedAt ?? 0) <= (canonical.updatedAt ?? 0)) return canonical
+  const { attempt: _ignored, ...rest } = worker
 
-  return (b.updatedAt ?? 0) > (a.updatedAt ?? 0) ? b : a
+  return canonical.attempt === undefined ? rest : { ...rest, attempt: canonical.attempt }
 }
 
 export function parseGraphIds(text: string): string[] {

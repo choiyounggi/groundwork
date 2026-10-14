@@ -57,7 +57,7 @@
       },
       "source": "./plugins/session-progress",
       "homepage": "https://github.com/choiyounggi/groundwork",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "tags": [
         "progress",
         "pane",

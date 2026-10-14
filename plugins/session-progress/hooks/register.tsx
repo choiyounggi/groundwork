@@ -141,6 +141,7 @@ function runIo($: EngineInterface): RunIo {
   return {
     read: path => $.fs.read(path),
     listFiles: async path => (await $.fs.list(path)).filter(f => f.kind === 'file').map(f => f.name),
+    listDirs: async path => (await $.fs.list(path)).filter(f => f.kind === 'dir').map(f => f.name),
     exists: path => $.fs.exists(path),
     cwd: () => $.session.cwd(),
     root: () => $.session.root(),
