@@ -43,7 +43,30 @@ entrance.
    ```
 
 5. **Update the memory index** (`MEMORY.md` in the same directory) with a
-   one-line pointer.
+   one-line pointer — the *when to recall it* hook, not the fact itself. Keep
+   it to one short line (about 150 characters) with no sub-bullets; numbers,
+   dates and history belong in the body. The index is loaded on every request
+   and the body is not, so detail in the index is paid per turn, and the
+   `memoryIndexMaxLines` check cannot see a line that has grown into a
+   paragraph.
+
+## What not to save
+
+Most candidates should be dropped here, before step 1:
+
+- **It already lives in an always-loaded file or is enforced elsewhere.** A
+  rule that CLAUDE.md, an imported rules file, a hook or a skill already
+  states is not a memory. A copy costs tokens on every request and drifts from
+  its source the first time either one is edited — keep a single source.
+- **It is a lesson about how to act.** That is a habit candidate
+  (`memory-loop:habit`, with its own gates), not a fact.
+- **It is the state of in-flight work.** Save it as `tier: short` with an
+  `expires_when:` naming the event that ends it (a release, a merge, a
+  decision), so the upkeep check can ask whether that event has happened.
+  When it ends, archive it; carry forward only a lesson general enough to
+  clear the habit gates.
+- **A memory on the same subject already exists.** Update that file instead
+  of adding a sibling.
 
 Optional: `salience: 1-5` (recall priority) may be added under `metadata`;
 memory-loop does not enforce it — it is a hint for your own recall ordering.

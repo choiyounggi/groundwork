@@ -122,6 +122,27 @@ say "check the real artifact before claiming" in the vocabulary of a different
 incident. Merged, they are one rule anyone can hold in their head. Separate,
 they are a file nobody reads.
 
+**Merging is not appending.** A merged rule still fits in two lines; the new
+incident's detail goes to the cases file, never onto the end of the rule. The
+opposite failure is just as real: one rule that absorbs every related incident
+as another clause until it is a page long. Neither the byte budget nor the rule
+cap notices that until the whole file is over — a dozen two-line rules and one
+essay can weigh the same.
+
+## A rule that is broken again is an escalation signal, not an edit
+
+When the lesson is "an existing rule was violated *again*", the rule's text has
+already failed once — the session that broke it had it loaded. Rewording or
+lengthening it is the least effective response available. Record the
+recurrence as a case (`## Cnn`, pointing at the rule) and put the rule on the
+escalation ladder below: if the breach is mechanically detectable, it is a hook
+candidate; if it is a procedure, a skill candidate.
+
+One audit of a long-lived habit file that skipped this step found the same
+shape everywhere: the rules that kept being extended after each recurrence grew
+into the largest entries and kept recurring, while the only breaches that
+actually stopped were the ones promoted to hooks.
+
 ## Escalation ladder
 
 Default home is HABITS.md. Promote when — and only when — a rule is clear,

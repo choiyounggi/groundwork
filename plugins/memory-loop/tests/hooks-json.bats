@@ -28,7 +28,7 @@ setup() {
 # defeat this test.
 nudge_hits() {
   grep -rn -i "learning-nudge\|nudgeInterval" "$PLUGIN_DIR" 2>/dev/null \
-    | grep -v "${PLUGIN_DIR}/hooks/memory-staleness-check.sh:280:" \
+    | grep -v "${PLUGIN_DIR}/hooks/memory-staleness-check.sh:[0-9]*:# from learning-nudge.sh) — evaluated every session" \
     | grep -v "${PLUGIN_DIR}/tests/hooks-json.bats:" \
     | grep -v 'nudgeInterval` in your config is' \
     | grep -v 'nudgeInterval`은 이제'
