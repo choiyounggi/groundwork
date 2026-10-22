@@ -21,6 +21,9 @@ jobs:
       - name: Run memory-loop tests
         run: bats plugins/memory-loop/tests
 
+      - name: Run file-lifecycle tests
+        run: python3 -m unittest discover -s plugins/file-lifecycle/tests -v
+
       # A workflow whose YAML does not parse is registered with NO triggers and
       # silently never runs — this catches that before it reaches main.
       - name: Check workflow YAML registers

@@ -155,6 +155,18 @@ LLM은 예/아니오 질문에 느리고 말이 많습니다. [Jev](https://docs
 Claude Code mod(셸 명령이 아닌 함수 훅)로 만들었습니다 — [어떻게 만들었나](plugins/session-progress/README.ko.md#어떻게-만들었나).
 mod 를 지원하는 Claude Code 빌드가 필요합니다(2.1.296 에서 확인).
 
+### 함께 쓰기: [file-lifecycle](plugins/file-lifecycle/README.ko.md) — 에이전트가 남긴 파일 정리
+
+에이전트가 만든 파일에 두 가지 수명 중 하나를 줍니다. 임시 파일은 세션 전용 폴더
+(`$CLAUDE_SESSION_TMP`)에 두고 세션이 끝나고 24시간 뒤 지웁니다. 남길 파일은 날짜 붙은
+이름으로 보관함에 옮기고, 무엇·왜를 적은 `INDEX.md` 내비게이터를 에이전트가 새 파일을 만들기
+전에 먼저 봅니다. 보관 전 시크릿 검사는 실패 시 거부하고, git 저장소·사용 중인 파일은 지우지
+않으며, `~/.claude/tmp` 최상위 정리는 직접 켜야 동작합니다.
+
+```text
+/plugin install file-lifecycle@groundwork
+```
+
 ## 왜 그냥 스타터 템플릿이 아닌가?
 
 대부분의 Claude Code 스타터는 *구조*를 스캐폴딩합니다. `groundwork`는

@@ -1,0 +1,15 @@
+{
+  "tmp_root": "~/.claude/tmp",
+  "archive_root": "~/claude-archive",
+  "log": "~/.claude/groundwork/state/file-lifecycle.log",
+  "sweep_top_level": false,
+  "default_ttl_days": 7,
+  "session_grace_hours": 24,
+  "session_idle_days": 7,
+  "throttle_hours": 6,
+  "entries": [
+    {"pattern": "test-queue", "policy": "keep", "why": "lock and slot state of a test queue shared by sessions"},
+    {"pattern": "launchd-logs", "policy": "ttl-contents", "ttl_days": 30, "why": "a LaunchAgent writes here; the job fails if the directory is missing"},
+    {"pattern": "guard-off", "policy": "ttl", "ttl_days": 1, "why": "a marker that turns a guard off — expire it so the guard comes back on its own"}
+  ]
+}

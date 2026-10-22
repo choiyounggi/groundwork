@@ -162,6 +162,19 @@ Built as a Claude Code mod (function hooks, not shell commands); see
 [how it is built](plugins/session-progress/README.md#how-it-is-built). Needs a
 Claude Code build with mod support (verified on 2.1.296).
 
+### Companion: [file-lifecycle](plugins/file-lifecycle/README.md) — clean up after the agent
+
+Gives every file an agent creates one of two lives. Scratch goes to a per-session
+dir (`$CLAUDE_SESSION_TMP`) that is deleted 24 h after the session ends. Files
+worth keeping move into an archive under dated names, listed in an `INDEX.md`
+navigator the agent reads before it creates a new one. The archive's secret scan
+fails closed, the sweeper never deletes git repositories or files in use, and the
+sweep of `~/.claude/tmp` itself is opt-in.
+
+```text
+/plugin install file-lifecycle@groundwork
+```
+
 ## Why not just a starter template?
 
 Most Claude Code starters scaffold *structure*. `groundwork` ships **behavior**:

@@ -69,6 +69,26 @@
       ]
     },
     {
+      "name": "file-lifecycle",
+      "description": "A lifecycle for the files an agent leaves behind — a per-session scratch dir deleted after a grace period once the session ends, an opt-in age-based sweep of ~/.claude/tmp with a keep/ttl registry, and a long-term archive with dated names, a fail-closed secret scan, duplicate refusal and a generated INDEX.md navigator. Local-only.",
+      "category": "development",
+      "author": {
+        "name": "choiyounggi",
+        "url": "https://github.com/choiyounggi"
+      },
+      "source": "./plugins/file-lifecycle",
+      "homepage": "https://github.com/choiyounggi/groundwork",
+      "version": "0.1.1",
+      "tags": [
+        "tmp",
+        "cleanup",
+        "archive",
+        "lifecycle",
+        "files",
+        "claude-code"
+      ]
+    },
+    {
       "name": "dev-loop",
       "description": "A wiki-grounded implementation loop — planning fixed to a semantic-layer best-practices wiki, a TDD / PDCA / Reflexion verification loop, and a knowledge-capture loop that harvests verified insights into reviewed wiki PRs.",
       "category": "development",
