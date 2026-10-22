@@ -1,0 +1,15 @@
+{
+  "name": "file-lifecycle",
+  "displayName": "file-lifecycle",
+  "description": "A lifecycle for the files an agent leaves behind: a per-session scratch dir ($CLAUDE_SESSION_TMP) deleted after a grace period once the session ends, an opt-in age-based sweep of ~/.claude/tmp with a keep/ttl registry, and a long-term archive with dated names, a fail-closed secret scan, duplicate refusal and a generated INDEX.md navigator. Local-only, macOS and Linux.",
+  "version": "0.1.1",
+  "author": {
+    "name": "choiyounggi",
+    "url": "https://github.com/choiyounggi"
+  },
+  "homepage": "https://github.com/choiyounggi/groundwork",
+  "license": "MIT",
+  "repository": "https://github.com/choiyounggi/groundwork",
+  "icon": "./assets/icon.png",
+  "keywords": ["tmp", "scratch", "cleanup", "archive", "lifecycle", "files"]
+}

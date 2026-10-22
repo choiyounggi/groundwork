@@ -1,0 +1,25 @@
+{
+  "description": "file-lifecycle hooks — create the session scratch dir and start the background sweep (SessionStart), mark the session dir for deletion after the grace period (SessionEnd).",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/tmp_lifecycle.py\" session-start"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/tmp_lifecycle.py\" session-end"
+          }
+        ]
+      }
+    ]
+  }
+}
