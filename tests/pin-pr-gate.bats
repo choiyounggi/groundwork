@@ -130,6 +130,23 @@ EOF
   [ "$(_calls)" -eq 1 ]
 }
 
+@test "wait-merged: the workflow's default call checks 80 times, 15s apart" {
+  # sync-dev-loop-pin.yml runs `wait-merged "$pr"` with no extra arguments, and
+  # its timeout-minutes is sized to this window. A sleep double on PATH logs
+  # each wait instead of waiting.
+  _stub_gh OPEN
+  cat > "$STUB_DIR/sleep" <<'EOF'
+#!/usr/bin/env bash
+echo "$*" >> "$(dirname "$0")/sleeps"
+EOF
+  chmod +x "$STUB_DIR/sleep"
+  run env PATH="$STUB_DIR:$PATH" PIN_GH="$STUB_DIR/gh" bash "$SCRIPT" wait-merged 138
+  [ "$status" -eq 4 ]
+  [ "$(_calls)" -eq 80 ]
+  [ "$(wc -l < "$STUB_DIR/sleeps" | tr -d ' ')" -eq 79 ]
+  [ "$(sort -u "$STUB_DIR/sleeps")" = "15" ]
+}
+
 @test "wait-merged: zero or non-numeric attempts and PR numbers are usage errors" {
   _stub_gh MERGED
   run env PIN_GH="$STUB_DIR/gh" bash "$SCRIPT" wait-merged 138 0 0
