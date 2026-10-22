@@ -25,6 +25,12 @@
 # After it lands, an install picks the new version up with
 # `claude plugin marketplace update groundwork` + `claude plugin update
 # dev-loop@groundwork` (the local SessionStart hook does this daily).
+#
+# Back-to-back releases (issue #141): every run bumps the same two lines, so a
+# run must start from a main that already holds the previous run's merge. Runs
+# therefore queue on one concurrency group, each waits until its own PR has
+# merged before it ends, and checkout reads main's tip at job start (not the sha
+# the run was dispatched at). Older pin PRs still open are closed as superseded.
 
 name: sync dev-loop pin
 
@@ -37,13 +43,22 @@ permissions:
   contents: write # pushes the bump branch
   pull-requests: write # opens and merges its own PR (main forbids direct pushes)
 
+# One run at a time; a newer pending run replaces an older pending one, which is
+# fine because each run resolves the latest release itself.
+concurrency:
+  group: sync-dev-loop-pin
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30 # includes up to 20 minutes waiting for the PR's checks
     steps:
       - uses: actions/checkout@v4
         with:
+          # main's tip when the job starts: a run that queued behind another
+          # must see the pin that run merged, not the sha it was dispatched at.
+          ref: main
           # Persisted as the push credential below — the PAT when present, so
           # the bot's branch push actually triggers CI.
           token: ${{ secrets.PIN_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
@@ -78,6 +93,20 @@ jobs:
             3) echo "changed=true"  >> "$GITHUB_OUTPUT" ;;
             *) echo "::error::sync-dev-loop-pin.sh failed (exit $rc): $out"; exit 1 ;;
           esac
+
+      # A pin PR for an older tag can never land once a newer pin is on main (it
+      # edits the same two lines), so it would sit open forever.
+      - name: Close superseded pin PRs
+        env:
+          GH_TOKEN: ${{ secrets.PIN_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.latest.outputs.tag }}
+        run: |
+          set -euo pipefail
+          open=$(gh pr list --state open --limit 200 --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
+          for n in $(printf '%s\n' "$open" | bash scripts/pin-pr-gate.sh superseded "$TAG"); do
+            gh pr close "$n" --delete-branch --comment "Superseded: dev-loop is being pinned to ${TAG}, and an older pin can no longer merge. Closed by sync-dev-loop-pin.yml."
+            echo "closed superseded pin PR #${n}"
+          done
 
       # Nothing downstream will check this commit — a GITHUB_TOKEN push does not
       # trigger workflows — so the checks that would have run on a PR run here,
@@ -136,4 +165,16 @@ jobs:
           # where auto-merge is unavailable.
           gh pr merge "$pr" --squash --delete-branch --auto \
             || gh pr merge "$pr" --squash --delete-branch
+
+          # --auto returns before the merge lands. Hold the run (and with it the
+          # concurrency group) until it has, so the next run starts from the new pin.
+          set +e
+          out=$(bash scripts/pin-pr-gate.sh wait-merged "$pr")
+          rc=$?
+          set -e
+          echo "$out"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::PR #${pr} did not merge (exit $rc): $out"
+            exit 1
+          fi
           echo "pinned dev-loop at ${TAG} via PR #${pr}"
