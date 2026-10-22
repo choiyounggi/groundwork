@@ -27,6 +27,9 @@
 #                               checks below ignore it and run every session.
 #   "extraMemoryDirs"         — extra memory dirs, same as the expiry sweep.
 #   "habitsPath"              — habit file. Default ~/.claude/groundwork/HABITS.md.
+#                               When unset and the default is missing, an
+#                               existing *habit*.md that ~/.claude/CLAUDE.md
+#                               @imports is reported as "not watched".
 #   "habitsCasesPath"         — its background file. Default HABITS-CASES.md beside it.
 #   "habitsBudgetBytes"       — habit file byte budget. 0 disables. Default 8000.
 #   "habitsMaxRules"          — rule cap (lines matching '^- **'). 0 disables. Default 24.
@@ -289,6 +292,7 @@ CASES_FILE=$(cfg_path habitsCasesPath "$(dirname "$HABITS_FILE")/HABITS-CASES.md
 habit_over_budget=""
 habit_over_rules=""
 habit_over_split=""
+habit_unwired=""
 habit_detail=""
 if [ -f "$HABITS_FILE" ]; then
   H_SZ=$(wc -c < "$HABITS_FILE" 2>/dev/null | tr -d ' ')
@@ -329,6 +333,36 @@ if [ -f "$HABITS_FILE" ]; then
       habit_detail="$SPLIT_TEXT"
     fi
   fi
+elif [ "$HABITS_FILE" = "${HOME}/.claude/groundwork/HABITS.md" ]; then
+  # Unwired: habitsPath is the unset default and no file lives there, but the
+  # global CLAUDE.md imports some other habit file. The write guard and every
+  # check above compare against $HABITS_FILE only, so they fail open on the
+  # path mismatch — the imported file is re-read on every request with no
+  # budget, and nothing ever says so. Only the default path is checked: a
+  # habitsPath the user set on purpose is theirs to keep pointing anywhere.
+  CLAUDE_MD="${HOME}/.claude/CLAUDE.md"
+  if [ -f "$CLAUDE_MD" ]; then
+    while IFS= read -r imp; do
+      imp="${imp#@}"
+      imp="${imp%"${imp##*[![:space:]]}"}"
+      # shellcheck disable=SC2088  # literal "~/" prefix pattern, expanded by hand.
+      case "$imp" in
+        '~/'*) imp="${HOME}/${imp:2}" ;;
+        /*) ;;
+        *) imp="$(dirname "$CLAUDE_MD")/${imp}" ;;
+      esac
+      if [ -f "$imp" ]; then
+        habit_unwired="$imp"
+        break
+      fi
+    done < <(grep -iE '^@[^[:space:]]*habit[^[:space:]]*\.md[[:space:]]*$' "$CLAUDE_MD" 2>/dev/null || true)
+  fi
+  if [ -n "$habit_unwired" ]; then
+    U_SZ=$(wc -c < "$habit_unwired" 2>/dev/null | tr -d ' ')
+    case "$U_SZ" in ''|*[!0-9]*) U_SZ=0 ;; esac
+    habit_detail=$(printf '%s is imported by %s (%s bytes, re-read on every request), but habitsPath is unset and its default %s does not exist — the budget guard and the habit checks are watching nothing. Point "habitsPath" (and "habitsCasesPath") at that file in ~/.claude/groundwork/memory-loop.json.\n' \
+      "$habit_unwired" "$CLAUDE_MD" "$U_SZ" "$HABITS_FILE")
+  fi
 fi
 
 issues=""
@@ -345,6 +379,7 @@ upkeep_ran=""
 [ -n "$habit_over_budget" ] && issues="${issues}${issues:+, }habits over budget"
 [ -n "$habit_over_rules" ] && issues="${issues}${issues:+, }habits over rule cap"
 [ -n "$habit_over_split" ] && issues="${issues}${issues:+, }habits over split threshold"
+[ -n "$habit_unwired" ] && issues="${issues}${issues:+, }habit file not watched"
 
 [ -n "$issues" ] || exit 0
 

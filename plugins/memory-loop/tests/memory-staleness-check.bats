@@ -520,6 +520,57 @@ days_back() { date -v-"$1"d +%Y-%m-%d 2>/dev/null || date -d "$1 days ago" +%Y-%
   in_detail "into MY-CASES.md, leaving a [Cnn] pointer"
 }
 
+@test "habits: a habit file CLAUDE.md imports while habitsPath is unset is reported as not watched" {
+  habits_file 300 2 "$HOME/.claude/rules/self-habits.md"
+  printf '# me\n\n@instructions.md\n@rules/self-habits.md\n' > "$HOME/.claude/CLAUDE.md"
+  run run_hook
+  [ "$status" -eq 0 ]
+  one_line
+  [ "$output" = "memory upkeep: habit file not watched — details: $DETAIL; run \"/memory-loop:consolidate\"." ]
+  in_detail "$HOME/.claude/rules/self-habits.md is imported by $HOME/.claude/CLAUDE.md (300 bytes, re-read on every request)"
+  in_detail "the budget guard and the habit checks are watching nothing"
+  in_detail "\"habitsPath\""
+}
+
+@test "habits: the unwired check expands @~/ imports and tolerates trailing spaces" {
+  habits_file 10 1 "$HOME/notes/HABITS-mine.md"
+  printf '@~/notes/HABITS-mine.md  \n' > "$HOME/.claude/CLAUDE.md"
+  run run_hook
+  one_line
+  [[ "$output" == "memory upkeep: habit file not watched — "* ]]
+  in_detail "$HOME/notes/HABITS-mine.md is imported by"
+}
+
+@test "habits: once habitsPath points at the imported file the unwired report stops" {
+  habits_file 300 2 "$HOME/.claude/rules/self-habits.md"
+  printf '@rules/self-habits.md\n' > "$HOME/.claude/CLAUDE.md"
+  printf '{"habitsPath": "~/.claude/rules/self-habits.md"}' > "$GW/memory-loop.json"
+  run run_hook
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "habits: no unwired report for a missing import, a non-habit import, or a habitsPath set on purpose" {
+  # The import names a habit file that does not exist.
+  printf '@rules/self-habits.md\n@instructions.md\n' > "$HOME/.claude/CLAUDE.md"
+  printf 'x\n' > "$HOME/.claude/instructions.md"
+  run run_hook
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+
+  # A habit file exists but is only mentioned, not imported (not a whole @line).
+  habits_file 300 2 "$HOME/.claude/rules/self-habits.md"
+  printf 'see @rules/self-habits.md for habits\n' > "$HOME/.claude/CLAUDE.md"
+  run run_hook
+  [ -z "$output" ]
+
+  # habitsPath was set deliberately (even to a missing file): not ours to second-guess.
+  printf '@rules/self-habits.md\n' > "$HOME/.claude/CLAUDE.md"
+  printf '{"habitsPath": "~/elsewhere/HABITS.md"}' > "$GW/memory-loop.json"
+  run run_hook
+  [ -z "$output" ]
+}
+
 @test "habits: the cooldown silences upkeep buckets but never the habit bucket" {
   small_limits
   habits_file 101 1

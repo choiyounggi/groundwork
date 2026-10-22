@@ -141,7 +141,7 @@ the other grows a continuous, self-correcting agent.
 | Hook | Event | What it does |
 |------|-------|--------------|
 | `identity-context.sh` | SessionStart | Injects "The user's name is X. Your name is Y." — or offers a one-time name setup when unconfigured; silent forever after a decline |
-| `memory-staleness-check.sh` | SessionStart | One line naming which upkeep buckets fired (re-verify, index drift, broken links, orphans, oversized index, consolidate overdue, plus the always-on habit budget/rule-cap/split-threshold checks), pointing at `~/.claude/groundwork/memory-loop/staleness-last-detail.md` for the full report; silent when nothing to report. Reports only; never writes |
+| `memory-staleness-check.sh` | SessionStart | One line naming which upkeep buckets fired (re-verify, index drift, broken links, orphans, oversized index, consolidate overdue, plus the always-on habit budget/rule-cap/split-threshold checks, and a *habit file not watched* warning when `habitsPath` is unset but `~/.claude/CLAUDE.md` imports a habit file from elsewhere), pointing at `~/.claude/groundwork/memory-loop/staleness-last-detail.md` for the full report; silent when nothing to report. Reports only; never writes |
 | `memory-expiry-sweep.sh` | SessionStart | Moves lapsed `tier: short` memories into `archived/` (never deletes) and prints one line naming the count, pointing at `~/.claude/groundwork/memory-loop/expiry-sweep-last.md` for the full report — so the agent tidies the index and offers promotions; silent when nothing lapsed |
 | `habits-budget-guard.sh` | PreToolUse (Edit\|Write) | Denies a write that grows the habit file past its byte/rule budget; a write that shrinks it is always allowed, so the way out is never blocked |
 | `correction-signal.sh` | UserPromptSubmit | When the prompt looks like a correction (Korean or English keyword), records one line to `signals.jsonl` and injects one context line suggesting a habit or memory capture — capped at `correctionInjectionCap` injections per session (default 3; every match is still recorded) |
@@ -204,7 +204,7 @@ global overrides built-in defaults.
 | `habitsBudgetBytes` | `8000` | Size budget for the always-loaded habit file. A write past it is denied, and the memory-upkeep check (`memory-staleness-check.sh`) reports it every session (`0` disables) |
 | `habitsMaxRules` | `24` | Rule-count cap for the habit file, 🟢 and 🛑 counted together (`0` disables) |
 | `habitsSplitWarnBytes` | `40000` | Past this size, the memory-upkeep check also reports that the habit file's background prose should move into the cases file (`0` disables) |
-| `habitsPath` | `~/.claude/groundwork/HABITS.md` | The habit file the budget guard and size checks read — set this if you import your own file from elsewhere (`~` supported) |
+| `habitsPath` | `~/.claude/groundwork/HABITS.md` | The habit file the budget guard and size checks read — set this if you import your own file from elsewhere (`~` supported). Left unset while CLAUDE.md imports a different `*habit*.md`, the upkeep check reports *habit file not watched* every session |
 | `habitsCasesPath` | `HABITS-CASES.md` beside `habitsPath` | Where its case records live (`~` supported) |
 | `memoryReviewDays` | `90` | A memory untouched for this long becomes a re-verification candidate (`0` disables) |
 | `memoryIndexMaxLines` | `120` | `MEMORY.md` line count that calls for a consolidation pass (`0` disables) |

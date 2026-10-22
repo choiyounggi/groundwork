@@ -195,7 +195,7 @@ dev-loop의 지식 루프는 *프로젝트·엔지니어링* 지식을 리뷰되
 | `habitsBudgetBytes` | `8000` | 항상 로드되는 습관 파일의 크기 예산. 이를 넘기는 쓰기는 거부되고, 메모리 업킵 체크(`memory-staleness-check.sh`)가 매 세션 이를 보고함 (`0`이면 비활성) |
 | `habitsMaxRules` | `24` | 습관 파일의 규칙 수 상한 — 🟢과 🛑을 합쳐서 셈 (`0`이면 비활성) |
 | `habitsSplitWarnBytes` | `40000` | 습관 파일이 이 크기를 넘으면 메모리 업킵 체크가 배경 산문을 사례 파일로 옮기도록 함께 보고 (`0`이면 비활성) |
-| `habitsPath` | `~/.claude/groundwork/HABITS.md` | 예산 가드와 크기 검사가 읽을 습관 파일 — 다른 경로의 파일을 import해서 쓰면 이 값을 지정 (`~` 지원) |
+| `habitsPath` | `~/.claude/groundwork/HABITS.md` | 예산 가드와 크기 검사가 읽을 습관 파일 — 다른 경로의 파일을 import해서 쓰면 이 값을 지정 (`~` 지원). 지정하지 않은 채 CLAUDE.md 가 다른 `*habit*.md` 를 import 하면 점검 훅이 매 세션 *habit file not watched* 를 알린다 |
 | `habitsCasesPath` | `habitsPath` 옆의 `HABITS-CASES.md` | 그 사례 기록 파일의 경로 (`~` 지원) |
 | `memoryReviewDays` | `90` | 이 기간 동안 손대지 않은 메모리는 재검증 후보가 됨 (`0`이면 비활성) |
 | `memoryIndexMaxLines` | `120` | 정리 패스를 권할 `MEMORY.md` 줄 수 (`0`이면 비활성) |
