@@ -42,7 +42,9 @@ class Base(unittest.TestCase):
         base = os.environ.get("FILE_LIFECYCLE_TEST_DIR")
         if base:
             os.makedirs(base, exist_ok=True)
-        self.box = tempfile.mkdtemp(dir=base)
+        # The tool realpath()s its roots, as lsof reports them; on macOS the temp
+        # dir is behind a symlink (/var -> /private/var), so compare resolved paths.
+        self.box = os.path.realpath(tempfile.mkdtemp(dir=base))
         self.root = os.path.join(self.box, "tmp")
         os.makedirs(self.root)
         self.cfg_path = os.path.join(self.box, "config.json")
