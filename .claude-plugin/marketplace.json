@@ -79,10 +79,10 @@
       "source": {
         "source": "url",
         "url": "https://github.com/choiyounggi/dev-loop.git",
-        "ref": "v1.33.0"
+        "ref": "v1.33.1"
       },
       "homepage": "https://github.com/choiyounggi/dev-loop",
-      "version": "1.33.0",
+      "version": "1.33.1",
       "tags": [
         "orchestrator",
         "verification-loop",
