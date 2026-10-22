@@ -24,8 +24,11 @@ macOS·Linux 의 `python3`(3.8+)만 있으면 됩니다.
 2. **SessionEnd** — `.ended` 표식만 남깁니다. 실제 삭제는 유예(24시간) 뒤 정리기가 합니다.
    SessionEnd 훅은 시간 예산이 짧아 큰 폴더를 지우다 끊길 수 있고, `/clear`·재개 직후에 파일이
    다시 필요할 수 있어서입니다. 재개하면 표식이 지워집니다.
-3. **정리기** — 세션 시작 때 백그라운드로 돌고, 6시간에 한 번만 돕니다. 표식 없이 죽은 세션은
-   claude 프로세스가 없고, 트랜스크립트가 7일 넘게 멈췄고, 폴더도 7일 넘게 안 바뀌었을 때 지웁니다.
+3. **정리기** — 세션 시작 때 백그라운드로 돌고, 6시간에 한 번만 돕니다. 그래서 「24시간 뒤」는
+   24시간이 지난 뒤 처음 도는 정리를 뜻하고, 새 세션이 열리지 않으면 아무것도 지우지 않습니다.
+   표식 없이 죽은 세션은 claude 프로세스가 없고, 트랜스크립트가 7일 넘게 멈췄고, 폴더도 7일 넘게
+   안 바뀌었을 때 지웁니다. 플러그인이 만든 폴더(세션 ID 이름 + 표식 파일)만 관리하고, `s/` 아래의
+   다른 폴더는 건드리지 않습니다.
 4. **보관함** — `/file-lifecycle:archive` 또는 `scripts/archive.py` 가 날짜 붙은 이름으로 옮기고,
    무엇·왜를 `index.jsonl` 에 적고, 내비게이터 `INDEX.md` 를 다시 만듭니다. 에이전트는 오래 둘
    파일을 새로 만들기 전에 이 파일부터 봅니다.
@@ -49,13 +52,19 @@ macOS·Linux 의 `python3`(3.8+)만 있으면 됩니다.
 
 - `keep` 삭제 안 함 · `ttl` 항목째 `ttl_days` 뒤 삭제 · `ttl-contents` 폴더는 두고 안의 항목만 삭제.
 - 등록 안 된 항목은 `default_ttl_days`(7일) 뒤 삭제합니다. policy 가 없거나 모르는 값이면 남깁니다.
+  패턴은 최상위 이름에 대한 glob 이고, 처음 맞은 항목이 적용됩니다.
 - 나이는 트리 안 **가장 최근 수정 시각**과 **정리기가 처음 발견한 시각**이 **둘 다** 기준을 넘어야
   찹니다. 수정 시각만 보면 `mv`·`tar -x` 로 옛 시각을 가진 채 들어온 파일이 바로 지워지기
-  때문입니다. 그래서 켠 직후 `default_ttl_days` 동안은 아무것도 지워지지 않습니다.
-- `python3 scripts/tmp_lifecycle.py status` 는 지우지 않고 무엇이 지워질지만 보여 줍니다.
+  때문입니다. 그래서 켠 직후에는 첫 정리부터 TTL(`default_ttl_days`, 또는 등록 항목의 더 짧은
+  `ttl_days`)이 지나기 전까지 아무것도 지워지지 않습니다.
+- `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tmp_lifecycle.py" status` 는 지우지 않고 무엇이 지워질지만
+  보여 줍니다. (SessionStart 컨텍스트 한 줄에 플러그인 스크립트의 전체 경로가 나옵니다.)
 
-전체 예시: [`examples/file-lifecycle.example.json`](examples/file-lifecycle.example.json).
-설정 파일은 `~/.claude/groundwork/file-lifecycle.json` 이고 모든 키가 선택입니다.
+전체 예시: [`examples/file-lifecycle.example.json`](examples/file-lifecycle.example.json)
+(`sweep_top_level: false` 로 들어 있습니다 — 항목을 내 환경에 맞춘 뒤 켭니다).
+설정 파일은 `~/.claude/groundwork/file-lifecycle.json` 이고 모든 키가 선택입니다. 설정은 검사합니다 —
+타입이 틀리거나(문자열 `"false"`, 글자로 쓴 숫자, 0 인 TTL) 루트가 위험하면(상대 경로, `/`, 홈 폴더,
+git 체크아웃) 오류로 보고, 잘못된 설정으로는 아무것도 지우지 않습니다.
 
 ## 정리기가 절대 지우지 않는 것
 
@@ -64,17 +73,18 @@ macOS·Linux 의 `python3`(3.8+)만 있으면 됩니다.
   로그에 `KEEP(contains git)` 으로만 남깁니다.
 - claude 프로세스가 살아 있는 세션 폴더(PID + 시작 시각으로 판정 — 재사용된 PID 는 인정하지 않음).
 - 심링크의 대상, tmp 루트 밖의 모든 것.
-- 설정 파일이 있는데 파싱되지 않으면 전부. 기본값에는 `keep` 항목이 없어서, 기본값으로 정리하면
+- 설정 파일이 있는데 잘못됐으면 전부. 기본값에는 `keep` 항목이 없어서, 기본값으로 정리하면
   등록해 둔 것을 지울 수 있기 때문입니다.
 
 ## 보관함
 
 ```bash
-python3 scripts/archive.py find <키워드>                 # 먼저 찾는다
-python3 scripts/archive.py add <경로> --cat reports \
+A="${CLAUDE_PLUGIN_ROOT}/scripts/archive.py"
+python3 "$A" find <키워드>                 # 먼저 찾는다
+python3 "$A" add <경로> --cat reports \
   --topic "무엇" --why "왜 생겼고 언제 다시 쓰나"
-python3 scripts/archive.py check                         # 어긋남·검토일 경과
-python3 scripts/archive.py remove <경로> --yes
+python3 "$A" check                         # 어긋남·검토일 경과
+python3 "$A" remove <경로> --yes
 ```
 
 - 분류: `reports` · `plans` · `data` · `backups` · `notes` · `scripts`.
