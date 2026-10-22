@@ -28,6 +28,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # release-notes.sh needs every tag and the history between them.
+          fetch-depth: 0
 
       # groundwork is a marketplace bundling several independently versioned
       # plugins, so there is no single file the tag must equal. Require instead
@@ -47,7 +50,19 @@ jobs:
             exit 1
           fi
 
+      # Same notes as auto-tag.yml: only the commits under this plugin's
+      # directory since its own previous tag (the tag namespace is shared).
+      - name: Write release notes for the plugin this tag belongs to
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          SOURCE=$(jq -r --arg v "$TAG_VERSION" '[.plugins[] | select(.version == $v and (.source | type) == "string")][0].source // empty' .claude-plugin/marketplace.json)
+          if [ -z "$SOURCE" ]; then
+            echo "::error::No local plugin has version $TAG_VERSION."
+            exit 1
+          fi
+          bash scripts/release-notes.sh "$GITHUB_REF_NAME" "$SOURCE" > "$RUNNER_TEMP/notes.md"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: ${{ runner.temp }}/notes.md

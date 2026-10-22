@@ -47,6 +47,9 @@ jobs:
       - name: Detect release status
         run: bash scripts/auto-tag.sh | tee auto-tag-output.txt
 
+      # Notes come from scripts/release-notes.sh, not --generate-notes: the
+      # tag namespace is shared, so GitHub would compare against the last
+      # release of ANY plugin and list unrelated PRs (dev-loop pin bumps).
       - name: Create tags and releases for plugins that need them
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,8 +57,11 @@ jobs:
           while IFS=' ' read -r kind tag plugin; do
             if [ "$kind" = "need:" ]; then
               version="${tag#v}"
+              src=$(jq -r --arg n "$plugin" '.plugins[] | select(.name == $n) | .source' .claude-plugin/marketplace.json)
               git tag "$tag"
+              # Before the push: if the notes fail, the tag stays local and the next run retries.
+              bash scripts/release-notes.sh "$tag" "$src" > "$RUNNER_TEMP/notes-$tag.md"
               git push origin "$tag"
-              gh release create "$tag" --title "$plugin $version" --generate-notes
+              gh release create "$tag" --title "$plugin $version" --notes-file "$RUNNER_TEMP/notes-$tag.md"
             fi
           done < auto-tag-output.txt
