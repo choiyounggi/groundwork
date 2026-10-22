@@ -34,6 +34,8 @@ AI 코딩 에이전트에게 셸을 쥐여주면 *언젠가는* 반드시 `rm -r
 | 목표 하나를 병렬 세션으로 나누고, 세션마다 LLM 위키에 근거해 계획하길 | `dev-loop` | **Orca 네이티브 오케스트레이터** + 위키 기반 검증 루프 |
 | *내* 작업 방식을 기억하고 같은 실수를 반복하지 않는 에이전트 | `memory-loop` | 메모리 라이프사이클 + **HABITS.md** + 군더더기 없는 **OUTPUT.md** |
 | "완료"가 *증명된* 완료를 뜻하길, 토큰 0으로 | `jev-gate` | 판단만 하고 결정은 안 하는 로컬 **Jev 방식 판단 모델** |
+| *함께 쓰기:* 계획·작업 이력·dev-loop 실행을 채팅 옆 pane에서 보고 싶을 때 | `session-progress` | 컨텍스트가 찰수록 자라는 컨텍스트 드래곤이 있는 Claude Code **mod** |
+| *함께 쓰기:* 임시 파일은 알아서 정리되고, 남길 파일은 찾기 쉽게 | `file-lifecycle` | 세션별 임시 폴더 + 날짜가 붙고 시크릿을 검사하는 아카이브 |
 
 ## 설치
 
@@ -302,6 +304,9 @@ groundwork는 갇힌 정원이 아니라, 확장해서 쓰는 작고 정직한 �
 - **jev-gate** — `/jev-gate:setup`에서 기계에 맞는 모델을 고르고(8 GB 노트북부터
   24 GB 워크스테이션까지), `JEV_GATE_THRESHOLD` / `JEV_STOP_THRESHOLD`로 임계값을
   옮기거나, `JEV_GATE_URL`을 호스팅 Jev 엔드포인트로 바꾸세요.
+- **file-lifecycle** — `~/.claude/tmp`에서 남아야 할 항목을
+  `~/.claude/groundwork/file-lifecycle.json`에 등록하고(`keep` / `ttl` / `ttl-contents`)
+  `sweep_top_level`을 켜세요. 유예 시간과 아카이브 위치도 같은 파일에서 바꿉니다.
 
 당신의 위키, 당신의 테스트, 당신의 패턴을 가져오세요 — 하네스가 맞춰 적응합니다.
 
@@ -324,7 +329,8 @@ guardrails는 *특정 위험 패턴*을 매번 게이트하고, 팀 공유 설�
 
 ## 로드맵
 
-groundwork는 `guardrails` + `dev-loop` + `memory-loop` + `jev-gate`를 배송합니다. 다음은
+groundwork는 `guardrails` + `dev-loop` + `memory-loop` + `jev-gate`와, 함께 쓰는
+`session-progress` · `file-lifecycle`을 배송합니다. 다음은
 팀 거버넌스 — managed-settings 계층, policy-as-code, 감사 로그 집계 — 입니다.
 
 ## 라이선스

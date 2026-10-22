@@ -33,6 +33,8 @@ one plugin for each — install all four, or only the one you need:
 | one goal split across parallel sessions, each planning from an LLM wiki | `dev-loop` | an **Orca-native orchestrator** plus a wiki-grounded verification loop |
 | an agent that remembers *your* way of working and stops repeating a mistake | `memory-loop` | a memory lifecycle plus **HABITS.md** and a lean **OUTPUT.md** |
 | "done" to mean *proven* done, at zero token cost | `jev-gate` | a local **Jev-style decision model** that judges, never decides |
+| *companion:* the plan, every task and a dev-loop run in a pane beside the chat | `session-progress` | a Claude Code **mod** with a Context Dragon that grows with the context |
+| *companion:* scratch files cleaned up, and the ones worth keeping easy to find | `file-lifecycle` | a per-session scratch dir plus a dated, secret-scanned archive |
 
 ## Install
 
@@ -312,6 +314,9 @@ groundwork is a small, honest core you extend — not a walled garden:
 - **jev-gate** — pick the model that fits your machine at `/jev-gate:setup`
   (8 GB laptop to 24 GB workstation), move the thresholds with `JEV_GATE_THRESHOLD`
   / `JEV_STOP_THRESHOLD`, or point `JEV_GATE_URL` at a hosted Jev endpoint.
+- **file-lifecycle** — register what must stay in `~/.claude/tmp` (`keep` / `ttl` /
+  `ttl-contents`) in `~/.claude/groundwork/file-lifecycle.json`, then turn on
+  `sweep_top_level`; set the grace period and archive root in the same file.
 
 Bring your own wiki, your own tests, your own patterns — the harness adapts.
 
@@ -335,7 +340,8 @@ prompts are skipped. That is exactly when a power user needs a net. See
 
 ## Roadmap
 
-groundwork ships `guardrails` + `dev-loop` + `memory-loop` + `jev-gate`. Team
+groundwork ships `guardrails` + `dev-loop` + `memory-loop` + `jev-gate`, plus
+two companions: `session-progress` and `file-lifecycle`. Team
 governance — a managed-settings hierarchy, policy-as-code, and audit aggregation
 — is next.
 
