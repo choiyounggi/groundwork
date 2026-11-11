@@ -49,7 +49,7 @@ nudge_hits() {
 @test "UserPromptSubmit runs correction-signal.sh with no matcher" {
   run jq -r '.hooks.UserPromptSubmit[0].hooks[0].command' "$HOOKS_JSON"
   [ "$status" -eq 0 ]
-  [ "$output" = 'bash ${CLAUDE_PLUGIN_ROOT}/hooks/correction-signal.sh' ]
+  [ "$output" = 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/correction-signal.sh"' ]
   run jq -e '.hooks.UserPromptSubmit[0].matcher' "$HOOKS_JSON"
   [ "$status" -ne 0 ]
 }
@@ -60,6 +60,7 @@ nudge_hits() {
   while IFS= read -r cmd; do
     [ -z "$cmd" ] && continue
     script="${cmd##*hooks/}"
+    script="${script%\"}"
     [ -f "${PLUGIN_DIR}/hooks/${script}" ]
   done <<< "$output"
 }
@@ -74,13 +75,14 @@ nudge_hits() {
 
 @test "a hooks.json referencing a nonexistent script fails the existence check" {
   BROKEN="$BATS_TEST_TMPDIR/hooks-broken.json"
-  jq '.hooks.SessionStart[0].hooks[0].command = "bash ${CLAUDE_PLUGIN_ROOT}/hooks/does-not-exist.sh"' "$HOOKS_JSON" > "$BROKEN"
+  jq '.hooks.SessionStart[0].hooks[0].command = "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/does-not-exist.sh\""' "$HOOKS_JSON" > "$BROKEN"
   run jq -r '[.hooks[][].hooks[].command] | .[]' "$BROKEN"
   [ "$status" -eq 0 ]
   found_missing=""
   while IFS= read -r cmd; do
     [ -z "$cmd" ] && continue
     script="${cmd##*hooks/}"
+    script="${script%\"}"
     [ -f "${PLUGIN_DIR}/hooks/${script}" ] || found_missing=1
   done <<< "$output"
   [ -n "$found_missing" ]
