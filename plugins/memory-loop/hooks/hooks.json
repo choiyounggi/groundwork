@@ -6,23 +6,23 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/identity-context.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/identity-context.sh\""
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/output-template-sync.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/output-template-sync.sh\""
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/memory-expiry-sweep.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/memory-expiry-sweep.sh\""
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/memory-staleness-check.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/memory-staleness-check.sh\""
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/tutor-due-check.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/tutor-due-check.sh\""
           }
         ]
       }
@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/habits-budget-guard.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/habits-budget-guard.sh\""
           }
         ]
       }
@@ -43,7 +43,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/correction-signal.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/correction-signal.sh\""
           }
         ]
       }
